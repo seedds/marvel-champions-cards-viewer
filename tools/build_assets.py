@@ -1345,13 +1345,15 @@ def link_printings(records: list[dict]) -> int:
         if len(group) < 2:
             continue
 
-        # The picker names each printing by its set, pack and printed number, so two
-        # printings at one number in one pack would be two rows nothing tells apart.
-        # Nothing in the data does; this says so if that changes.
-        stamps = {(r["pack_code"], r.get("set_code"), r["position"]) for r in group}
+        # A picker row is the card's name over its set and printed number, so two
+        # printings agreeing on both would be two rows nothing tells apart. The pack is
+        # deliberately not in this key even though it is in the record: it is not on the
+        # row, so it cannot separate one. Nothing in the data collides; this says so if
+        # that changes.
+        stamps = {(r.get("set_name") or r["pack_name"], r["position"]) for r in group}
         if len(stamps) != len(group):
-            die(f"printings of {group[0]['name']!r} share a printed number: "
-                f"{[r['code'] for r in group]}")
+            die(f"printings of {group[0]['name']!r} share a set and printed number, so "
+                f"the picker would show identical rows: {[r['code'] for r in group]}")
 
         # The app draws one art box for the whole group and only swaps the picture in
         # it, so a group that disagreed about its shape or about having a second side

@@ -216,6 +216,13 @@ number, because the rows would then be captioned identically. That is also why t
 caption carries the number: two of Civil War's four Superhero Registration Acts have
 byte-identical art, and set and pack alone leave four rows nothing tells apart.
 
+A picker row leads with the **card's name**, like every other row in the app, and puts
+the set and printed number in the caption beneath. The name is the same on all of them,
+which is the point — it says what is being chosen between. Leading with the set name
+instead made the list read as a list of sets. The pack is not in the caption: set and
+number already separate every row of every group, and the provenance block below gives
+the pack in full for whichever printing is chosen.
+
 ## The app
 
 **Cupertino throughout.** The app is iOS-only, so it is built out of `cupertino.dart` and

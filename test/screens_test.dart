@@ -228,13 +228,16 @@ void main() {
     expect(assets(), contains('assets/CardImages/01101.webp'),
         reason: 'the opened printing is the one on show');
 
-    // Captioned by where each was printed, because a reprint's name, type, traits and
-    // text are all identical to the original's.
-    expect(find.text('Rhino'), findsOneWidget);
-    expect(find.text('Black Widow Nemesis'), findsOneWidget);
-    expect(find.text('Winter Soldier Nemesis'), findsOneWidget);
+    // Each row leads with the card's name, as every other row in the app does, and is
+    // told apart by the caption under it -- a reprint's type, traits and text are all
+    // identical to the original's, so where it was printed is the only difference.
+    // Three rows plus the nav bar's title.
+    expect(find.text('Hydra Mercenary'), findsNWidgets(4));
+    expect(find.text('Rhino  \u00b7  #101'), findsOneWidget);
+    expect(find.text('Black Widow Nemesis  \u00b7  #28'), findsOneWidget);
+    expect(find.text('Winter Soldier Nemesis  \u00b7  #31'), findsOneWidget);
 
-    await tester.tap(find.text('Winter Soldier Nemesis'));
+    await tester.tap(find.text('Winter Soldier Nemesis  \u00b7  #31'));
     await tester.pumpAndSettle();
     expect(assets(), contains('assets/CardImages/54031.webp'),
         reason: 'choosing a printing swaps the art above');
@@ -245,8 +248,9 @@ void main() {
     await search(tester, 'backflip');
     await openFirstResult(tester);
 
-    // One printing, so the art keeps the whole screen exactly as it did before.
-    expect(find.text('Core Set'), findsNothing);
+    // One printing, so the art keeps the whole screen exactly as it did before: no
+    // picker row, and so no caption naming the set Backflip was printed in.
+    expect(find.text('Spider-Man  \u00b7  #3'), findsNothing);
     expect(imagesOnScreen(tester), hasLength(1));
   });
 
@@ -274,14 +278,16 @@ void main() {
               'down the screen');
 
       // The printings follow the picture rather than being pinned to the bottom edge,
-      // so the gap between them is the divider and nothing else.
-      final picker = tester.getRect(find.text('Rhino'));
-      expect(picker.top - art.bottom, lessThan(60),
+      // so the gap between them is the divider and nothing else. Found by caption,
+      // because the name on each row is now the card's own and repeats down them.
+      final first = tester.getRect(find.text('Rhino  \u00b7  #101'));
+      expect(first.top - art.bottom, lessThan(60),
           reason: 'the printings sit directly beneath the art');
 
       // Whatever space is left over is below both, which is the point of the change.
-      expect(tester.getRect(find.text('Winter Soldier Nemesis')).bottom,
-          lessThan(800), reason: 'the whole column is packed towards the top');
+      final last = tester.getRect(find.text('Winter Soldier Nemesis  \u00b7  #31'));
+      expect(last.bottom, lessThan(800),
+          reason: 'the whole column is packed towards the top');
 
       // Everything above is measured before any image has actually decoded -- the test
       // clock is fake -- which is the point. The art claims its box from the card's

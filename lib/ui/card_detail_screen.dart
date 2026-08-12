@@ -141,9 +141,10 @@ class _CardPageState extends State<_CardPage> {
 
     // The scan is the card: everything the heading, stats and text below would say is
     // already printed on it, and better. The written-out version is the fallback for
-    // a side with no scan, which is 57 of 3,632 fronts and 125 of 324 backs. The
-    // choice is per side rather than per card -- The Break-In! is scanned and its
-    // back is not, so it shows art one way and text the other.
+    // a side with no scan, which is 53 of 3,632 fronts and 5 of 324 backs. The choice
+    // stays per side rather than per card: the five remaining two-sided gaps happen to
+    // have neither side scanned, but that is the state of one TTS save and not a rule,
+    // and a half-scanned card should show art one way and text the other.
     //
     // An unscanned side shows that text *where the picture would be*, with no
     // placeholder above it. A box saying "not scanned" is a card's height of nothing,
@@ -318,14 +319,22 @@ class _PrintingsHeading extends StatelessWidget {
 
 /// Every printing of one card, to pick between.
 ///
-/// A reprint differs from its original in nothing a card row usually shows -- same
-/// name, same type, same traits, same text -- so each row is captioned with where the
-/// card was printed instead.
+/// Shaped like a [CardRow] -- name on top, a caption under it -- because that is what a
+/// row of this app means, and a list whose first line is a set name reads as a list of
+/// sets. The name repeats down the rows, which is the point: it says what is being
+/// chosen between.
 ///
-/// The caption carries the printed number and not only the set and pack, because four
-/// groups hold several copies from one pack: Civil War prints Superhero Registration Act
-/// at positions 63, 96, 121 and 122, two of which have byte-identical art. Without the
-/// number those are four rows a person cannot tell apart.
+/// The caption is where the card was printed, since a reprint differs from its original
+/// in nothing else a row shows: same type, same traits, same text. It carries the
+/// printed number as well as the set because four groups hold several copies from one
+/// set -- Civil War prints Superhero Registration Act at positions 63, 96, 121 and 122,
+/// two of which have byte-identical art. Without the number those are four rows a
+/// person cannot tell apart.
+///
+/// Set and number are enough on their own: no group of printings has two rows sharing
+/// both. The pack is left to the provenance block below, which gives it in full for
+/// whichever printing is chosen, rather than spent on a line that has a phone's width
+/// to fit in.
 class _Printings extends StatelessWidget {
   const _Printings({
     required this.printings,
@@ -368,7 +377,7 @@ class _Printings extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        printing.setName ?? printing.packName,
+                        printing.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: rowTitleStyle(context).copyWith(
@@ -376,7 +385,8 @@ class _Printings extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '${printing.packName}  \u00b7  #${printing.position}',
+                        '${printing.setName ?? printing.packName}'
+                        '  \u00b7  #${printing.position}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: rowCaptionStyle(context),
