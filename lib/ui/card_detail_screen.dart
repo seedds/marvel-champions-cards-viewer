@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 
 import '../data/card_filter.dart';
 import '../data/marvel_card.dart';
@@ -12,11 +12,7 @@ import 'theme.dart';
 /// [cards] is the list the card was opened from, so a swipe walks exactly the rows
 /// that were on screen behind it: the search results, the filtered set, or a deck.
 class CardDetailScreen extends StatefulWidget {
-  const CardDetailScreen({
-    required this.cards,
-    required this.index,
-    super.key,
-  });
+  const CardDetailScreen({required this.cards, required this.index, super.key});
 
   final List<MarvelCard> cards;
   final int index;
@@ -26,8 +22,7 @@ class CardDetailScreen extends StatefulWidget {
 }
 
 class _CardDetailScreenState extends State<CardDetailScreen> {
-  late final PageController _controller =
-      PageController(initialPage: widget.index);
+  late final PageController _controller = PageController(initialPage: widget.index);
   late int _index = widget.index;
   bool _showingBack = false;
 
@@ -48,22 +43,27 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
     final hasBack = linkedBack != null || front.doubleSided;
     final showingBack = _showingBack && hasBack;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(showingBack ? _backTitle(front, linkedBack) : front.name),
-        actions: [
-          if (hasBack)
-            IconButton(
-              icon: const Icon(Icons.flip_to_back),
-              tooltip: 'Flip',
-              onPressed: () => setState(() => _showingBack = !_showingBack),
-            ),
-        ],
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(showingBack ? _backTitle(front, linkedBack) : front.name),
+        trailing: hasBack
+            ? CupertinoButton(
+                padding: EdgeInsets.zero,
+                onPressed: () => setState(() => _showingBack = !_showingBack),
+                // iOS has no tooltip, so the label a screen reader reads is also what
+                // a test finds this button by.
+                child: Semantics(
+                  label: 'Flip',
+                  button: true,
+                  child: const Icon(flipIcon),
+                ),
+              )
+            : null,
       ),
       // Only the current page is built at rest, and two during a swipe, because
       // `allowImplicitScrolling` is left off. Two full-size decodes is what the 24 MB
       // image cache is sized for; a cached neighbourhood of them would not be.
-      body: PageView.builder(
+      child: PageView.builder(
         controller: _controller,
         itemCount: widget.cards.length,
         // A card turned over and swiped past goes back to its front, rather than
@@ -126,8 +126,7 @@ class _CardPageState extends State<_CardPage> {
     final front = _selected;
     final linkedBack = repository.backOf(front);
     final face = widget.showingBack ? (linkedBack ?? front) : front;
-    final image =
-        widget.showingBack ? repository.backImageOf(front) : front.frontImage;
+    final image = widget.showingBack ? repository.backImageOf(front) : front.frontImage;
 
     final picker = printings.length < 2
         ? null
@@ -151,7 +150,9 @@ class _CardPageState extends State<_CardPage> {
     // and pushes the only information there is below the fold.
     if (image == null) {
       return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+        // The nav bar is translucent and this text starts at the top of the screen, so
+        // the bar's own inset is what keeps the card's name out from under it.
+        padding: EdgeInsets.fromLTRB(16, MediaQuery.paddingOf(context).top + 12, 16, 40),
         children: [
           _Heading(card: face, front: front, showingBack: widget.showingBack),
           const SizedBox(height: 12),
@@ -162,7 +163,10 @@ class _CardPageState extends State<_CardPage> {
           // At the bottom rather than up where the art would be: the text is what the
           // space above was given to.
           if (picker != null) ...[
-            const Divider(height: 32),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: _Separator(),
+            ),
             _PrintingsHeading(count: printings.length),
             const SizedBox(height: 4),
             picker,
@@ -199,11 +203,9 @@ class _CardPageState extends State<_CardPage> {
             // the screen.
             if (picker != null) ...[
               const SizedBox(height: 12),
-              const Divider(height: 1),
+              const _Separator(),
               ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: printings.length * CardRow.extent,
-                ),
+                constraints: BoxConstraints(maxHeight: printings.length * CardRow.extent),
                 child: picker,
               ),
             ],
@@ -217,6 +219,30 @@ class _CardPageState extends State<_CardPage> {
 String _backTitle(MarvelCard front, MarvelCard? linkedBack) =>
     linkedBack?.name ?? front.backName ?? front.name;
 
+/// The flip button's icon, named so that a test can find it.
+const flipIcon = CupertinoIcons.arrow_2_squarepath;
+
+/// A hairline, where Material had a Divider. Zero width means one physical pixel,
+/// which is what iOS draws and what `CupertinoListSection` uses between its rows.
+class _Separator extends StatelessWidget {
+  const _Separator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 0.0,
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: CupertinoColors.separator.resolveFrom(context),
+            width: 0.0,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The big picture, as opposed to the thumbnail the printing picker shows for the same
 /// card. Both draw the same asset, so a test looking for the art by its image cannot
 /// tell them apart; this can.
@@ -229,12 +255,7 @@ const artKey = ValueKey('card art');
 /// the picture alone rather than the whole screen, so that a tap meant for the printing
 /// picker below does not turn the card over.
 class _Art extends StatelessWidget {
-  const _Art({
-    required this.image,
-    required this.landscape,
-    this.onTap,
-    super.key,
-  });
+  const _Art({required this.image, required this.landscape, this.onTap, super.key});
 
   final String image;
 
@@ -271,9 +292,8 @@ class _Art extends StatelessWidget {
               // Decoded no wider than it can be drawn, rather than at the scan's
               // native 710px, which matters when several detail screens are on the
               // stack. ResizeImage does not upscale, so this clamps to the scan.
-              cacheWidth:
-                  (constraints.maxWidth * MediaQuery.devicePixelRatioOf(context))
-                      .round(),
+              cacheWidth: (constraints.maxWidth * MediaQuery.devicePixelRatioOf(context))
+                  .round(),
               filterQuality: FilterQuality.medium,
             ),
           ),
@@ -292,12 +312,7 @@ class _PrintingsHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Text(
-      'Printed $count times',
-      style: theme.textTheme.labelMedium
-          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-    );
+    return Text('Printed $count times', style: captionStyle(context));
   }
 }
 
@@ -324,7 +339,7 @@ class _Printings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final tint = CupertinoTheme.of(context).primaryColor;
 
     return ListView.builder(
       // Sized by its parent, and short: 38 groups, the largest five rows.
@@ -337,13 +352,12 @@ class _Printings extends StatelessWidget {
         final printing = printings[index];
         final isSelected = printing.code == selected.code;
 
-        return InkWell(
+        return GestureDetector(
           onTap: () => onSelected(printing),
+          behavior: HitTestBehavior.opaque,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-            color: isSelected
-                ? theme.colorScheme.primary.withValues(alpha: 0.10)
-                : null,
+            color: isSelected ? tint.withValues(alpha: 0.10) : null,
             child: Row(
               children: [
                 CardThumbnail(card: printing, width: CardRow.thumbnailWidth),
@@ -357,23 +371,20 @@ class _Printings extends StatelessWidget {
                         printing.setName ?? printing.packName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight:
-                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                        style: rowTitleStyle(context).copyWith(
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                         ),
                       ),
                       Text(
                         '${printing.packName}  \u00b7  #${printing.position}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall
-                            ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        style: rowCaptionStyle(context),
                       ),
                     ],
                   ),
                 ),
-                if (isSelected)
-                  Icon(Icons.check, size: 18, color: theme.colorScheme.primary),
+                if (isSelected) Icon(CupertinoIcons.checkmark, size: 18, color: tint),
               ],
             ),
           ),
@@ -384,11 +395,7 @@ class _Printings extends StatelessWidget {
 }
 
 class _Heading extends StatelessWidget {
-  const _Heading({
-    required this.card,
-    required this.front,
-    required this.showingBack,
-  });
+  const _Heading({required this.card, required this.front, required this.showingBack});
 
   final MarvelCard card;
   final MarvelCard front;
@@ -396,7 +403,7 @@ class _Heading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final textTheme = CupertinoTheme.of(context).textTheme;
     final traits = CardFilter.splitTraits(card.traits);
 
     return Column(
@@ -412,23 +419,22 @@ class _Heading extends StatelessWidget {
             Expanded(
               child: Text(
                 showingBack ? _backTitle(front, null) : card.name,
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w600),
+                style: textTheme.navLargeTitleTextStyle.copyWith(fontSize: 24),
               ),
             ),
           ],
         ),
         if (card.subname != null)
-          Text(card.subname!, style: theme.textTheme.titleSmall),
+          Text(
+            card.subname!,
+            style: textTheme.textStyle.copyWith(fontWeight: FontWeight.w600),
+          ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 6,
           runSpacing: 6,
           children: [
-            _Tag(
-              label: typeLabel(card.typeCode),
-              colour: aspectColour(card.factionCode),
-            ),
+            _Tag(label: typeLabel(card.typeCode), colour: aspectColour(card.factionCode)),
             if (card.stage != null) _Tag(label: 'Stage ${card.stage}'),
             if (card.permanent) const _Tag(label: 'Permanent'),
             if (card.hidden) const _Tag(label: 'Hidden'),
@@ -438,10 +444,7 @@ class _Heading extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             traits.join(' \u00b7 '),
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontStyle: FontStyle.italic,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: captionStyle(context).copyWith(fontStyle: FontStyle.italic),
           ),
         ],
       ],
@@ -457,23 +460,24 @@ class _Tag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     // An aspect tag keeps the game's colour, which is dark enough for white type in
-    // either theme. An untinted tag is a theme surface, so its label has to be the
-    // matching on-colour or it disappears in light mode.
-    final background = colour ?? scheme.surfaceContainerHighest;
+    // either theme. An untinted tag is a system fill, so its label has to be a label
+    // colour or it disappears in light mode.
+    final background = colour ?? CupertinoColors.tertiarySystemFill.resolveFrom(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: background.withValues(alpha: 0.85),
+        color: colour == null ? background : background.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colour == null ? scheme.onSurfaceVariant : Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
+        style: rowCaptionStyle(context).copyWith(
+          color: colour == null
+              ? CupertinoColors.secondaryLabel.resolveFrom(context)
+              : CupertinoColors.white,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -535,11 +539,7 @@ class _Stat {
 }
 
 class _StatChip extends StatelessWidget {
-  const _StatChip({
-    required this.label,
-    required this.value,
-    required this.starred,
-  });
+  const _StatChip({required this.label, required this.value, required this.starred});
 
   final String label;
   final String value;
@@ -547,31 +547,26 @@ class _StatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
+        color: CupertinoColors.tertiarySystemFill.resolveFrom(context),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label.toUpperCase(),
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  letterSpacing: 0.6,
-                ),
+            style: rowCaptionStyle(context).copyWith(letterSpacing: 0.6),
           ),
           const SizedBox(width: 6),
           Text(
             starred ? '$value\u2605' : value,
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w700),
+            style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
           ),
         ],
       ),
@@ -580,11 +575,7 @@ class _StatChip extends StatelessWidget {
 }
 
 class _Body extends StatelessWidget {
-  const _Body({
-    required this.card,
-    required this.front,
-    required this.showingBack,
-  });
+  const _Body({required this.card, required this.front, required this.showingBack});
 
   final MarvelCard card;
   final MarvelCard front;
@@ -594,23 +585,20 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     // The one self-contained two-sided card keeps its back's text on the front record.
     final text = showingBack && front.doubleSided ? front.backText : card.text;
-    final theme = Theme.of(context);
+    final bodyStyle = CupertinoTheme.of(context).textTheme.textStyle;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (text != null && text.isNotEmpty) ...[
           const SizedBox(height: 12),
-          CardText(text, style: theme.textTheme.bodyLarge),
+          CardText(text, style: bodyStyle),
         ],
         if (card.flavor != null && card.flavor!.isNotEmpty) ...[
           const SizedBox(height: 12),
           CardText(
             card.flavor!,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontStyle: FontStyle.italic,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: captionStyle(context).copyWith(fontStyle: FontStyle.italic),
           ),
         ],
         if (card.errata != null) ...[
@@ -618,15 +606,18 @@ class _Body extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
+              color: CupertinoColors.tertiarySystemFill.resolveFrom(context),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Errata', style: theme.textTheme.labelMedium),
+                Text(
+                  'Errata',
+                  style: captionStyle(context).copyWith(fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 4),
-                CardText(card.errata!, style: theme.textTheme.bodySmall),
+                CardText(card.errata!, style: captionStyle(context)),
               ],
             ),
           ),
@@ -643,9 +634,7 @@ class _Provenance extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        );
+    final style = captionStyle(context);
     final lines = <String>[
       if (card.setName != null) card.setName!,
       card.packName,
@@ -656,7 +645,7 @@ class _Provenance extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Divider(height: 24),
+        const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: _Separator()),
         for (final line in lines) Text(line, style: style),
       ],
     );

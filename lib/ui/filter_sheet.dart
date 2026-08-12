@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 
 import '../data/card_filter.dart';
 import '../data/marvel_card.dart';
@@ -10,11 +10,13 @@ Future<CardFilter?> showFilterSheet(
   required List<MarvelCard> cards,
   required CardFilter current,
 }) {
-  return showModalBottomSheet<CardFilter>(
+  return showCupertinoSheet<CardFilter>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (_) => _FilterSheet(cards: cards, current: current),
+    // The sheet holds a Navigator of its own, so a facet's list of values pushes
+    // *inside* the sheet rather than over the whole app.
+    useNestedNavigation: true,
+    scrollableBuilder: (context, controller) =>
+        _FilterSheet(cards: cards, current: current),
   );
 }
 
@@ -34,99 +36,93 @@ class _FilterSheetState extends State<_FilterSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.75,
-      maxChildSize: 0.95,
-      builder: (context, controller) {
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Text('Filter', style: Theme.of(context).textTheme.titleLarge),
-                  const Spacer(),
-                  if (!_filter.isEmpty)
-                    TextButton(
-                      onPressed: () => setState(() => _filter = const CardFilter()),
-                      child: const Text('Clear all'),
-                    ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(_filter),
-                    child: const Text('Done'),
-                  ),
-                ],
+    return CupertinoPageScaffold(
+      backgroundColor: listBackground,
+      navigationBar: CupertinoNavigationBar(
+        middle: const Text('Filter'),
+        automaticallyImplyLeading: false,
+        leading: _filter.isEmpty
+            ? null
+            : CupertinoButton(
+                padding: EdgeInsets.zero,
+                alignment: Alignment.centerLeft,
+                onPressed: () => setState(() => _filter = const CardFilter()),
+                child: const Text('Clear'),
               ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView(
-                controller: controller,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                children: [
-                  _ChipSection(
-                    title: 'Aspect',
-                    values: _facets.factions,
-                    selected: _filter.factions,
-                    labelFor: (code) => _factionLabel(code),
-                    colourFor: aspectColour,
-                    onChanged: (next) =>
-                        setState(() => _filter = _filter.copyWith(factions: next)),
-                  ),
-                  _ChipSection(
-                    title: 'Type',
-                    values: _facets.types,
-                    selected: _filter.types,
-                    labelFor: typeLabel,
-                    onChanged: (next) =>
-                        setState(() => _filter = _filter.copyWith(types: next)),
-                  ),
-                  // 61 packs, 356 sets and 221 traits are too many for a wall of chips,
-                  // so each gets a searchable list of its own.
-                  _PickerRow(
-                    title: 'Pack',
-                    values: _facets.packs,
-                    selected: _filter.packs,
-                    onChanged: (next) =>
-                        setState(() => _filter = _filter.copyWith(packs: next)),
-                  ),
-                  _PickerRow(
-                    title: 'Set',
-                    values: _facets.sets,
-                    selected: _filter.sets,
-                    onChanged: (next) =>
-                        setState(() => _filter = _filter.copyWith(sets: next)),
-                  ),
-                  _PickerRow(
-                    title: 'Trait',
-                    values: _facets.traits,
-                    selected: _filter.traits,
-                    onChanged: (next) =>
-                        setState(() => _filter = _filter.copyWith(traits: next)),
-                  ),
-                ],
+        trailing: CupertinoButton(
+          padding: EdgeInsets.zero,
+          alignment: Alignment.centerRight,
+          // Popped on the root navigator: the sheet's own nested one would only close
+          // this page inside the sheet and leave the sheet itself standing.
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(_filter),
+          child: const Text('Done'),
+        ),
+      ),
+      // Five rows, so nothing here scrolls -- which is why there is no controller to
+      // hand to a list. Each facet opens a searchable list of its own values, the way
+      // iOS spells a choice from more than a handful.
+      child: ListView(
+        children: [
+          CupertinoListSection.insetGrouped(
+            children: [
+              _FacetRow(
+                title: 'Aspect',
+                values: _facets.factions,
+                selected: _filter.factions,
+                labelFor: _factionLabel,
+                colourFor: aspectColour,
+                onChanged: (next) =>
+                    setState(() => _filter = _filter.copyWith(factions: next)),
               ),
-            ),
-          ],
-        );
-      },
+              _FacetRow(
+                title: 'Type',
+                values: _facets.types,
+                selected: _filter.types,
+                labelFor: typeLabel,
+                onChanged: (next) =>
+                    setState(() => _filter = _filter.copyWith(types: next)),
+              ),
+              _FacetRow(
+                title: 'Pack',
+                values: _facets.packs,
+                selected: _filter.packs,
+                onChanged: (next) =>
+                    setState(() => _filter = _filter.copyWith(packs: next)),
+              ),
+              _FacetRow(
+                title: 'Set',
+                values: _facets.sets,
+                selected: _filter.sets,
+                onChanged: (next) =>
+                    setState(() => _filter = _filter.copyWith(sets: next)),
+              ),
+              _FacetRow(
+                title: 'Trait',
+                values: _facets.traits,
+                selected: _filter.traits,
+                onChanged: (next) =>
+                    setState(() => _filter = _filter.copyWith(traits: next)),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
 String _factionLabel(String code) => switch (code) {
-      'aggression' => 'Aggression',
-      'justice' => 'Justice',
-      'leadership' => 'Leadership',
-      'protection' => 'Protection',
-      'basic' => 'Basic',
-      'hero' => 'Hero',
-      'pool' => 'Pool',
-      'encounter' => 'Encounter',
-      'campaign' => 'Campaign',
-      _ => code,
-    };
+  'aggression' => 'Aggression',
+  'justice' => 'Justice',
+  'leadership' => 'Leadership',
+  'protection' => 'Protection',
+  'basic' => 'Basic',
+  'hero' => 'Hero',
+  'pool' => 'Pool',
+  'encounter' => 'Encounter',
+  'campaign' => 'Campaign',
+  _ => code,
+};
 
 /// Every value a facet takes, in the order it should be offered.
 class _Facets {
@@ -175,95 +171,51 @@ class _Facets {
   }
 }
 
-class _ChipSection extends StatelessWidget {
-  const _ChipSection({
+/// One line per facet, opening a searchable list of its values.
+class _FacetRow extends StatelessWidget {
+  const _FacetRow({
     required this.title,
     required this.values,
     required this.selected,
-    required this.labelFor,
     required this.onChanged,
+    this.labelFor,
     this.colourFor,
   });
 
   final String title;
   final List<String> values;
   final Set<String> selected;
-  final String Function(String) labelFor;
+  final ValueChanged<Set<String>> onChanged;
+
+  /// How a stored code reads. Null when the values are already the words themselves,
+  /// which is every facet but Aspect and Type.
+  final String Function(String)? labelFor;
+
   final Color Function(String)? colourFor;
-  final ValueChanged<Set<String>> onChanged;
+
+  String _label(String value) => labelFor?.call(value) ?? value;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 8),
-          child: Text(title, style: Theme.of(context).textTheme.titleSmall),
-        ),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final value in values)
-              FilterChip(
-                label: Text(labelFor(value)),
-                selected: selected.contains(value),
-                avatar: colourFor == null
-                    ? null
-                    : CircleAvatar(backgroundColor: colourFor!(value), radius: 7),
-                onSelected: (isOn) {
-                  final next = selected.toSet();
-                  if (isOn) {
-                    next.add(value);
-                  } else {
-                    next.remove(value);
-                  }
-                  onChanged(next);
-                },
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-      ],
-    );
-  }
-}
-
-/// One line per long facet, opening a searchable list of its values.
-class _PickerRow extends StatelessWidget {
-  const _PickerRow({
-    required this.title,
-    required this.values,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final String title;
-  final List<String> values;
-  final Set<String> selected;
-  final ValueChanged<Set<String>> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(title, style: Theme.of(context).textTheme.titleSmall),
-      subtitle: Text(
+    return CupertinoListTile.notched(
+      title: Text(title),
+      additionalInfo: Text(
         selected.isEmpty
-            ? 'Any of ${values.length}'
-            : selected.toList().join(', '),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
+            ? 'Any'
+            : selected.length == 1
+            ? _label(selected.first)
+            : '${selected.length} chosen',
       ),
-      trailing: const Icon(Icons.chevron_right),
+      trailing: const CupertinoListTileChevron(),
       onTap: () async {
         final next = await Navigator.of(context).push<Set<String>>(
-          MaterialPageRoute(
+          CupertinoPageRoute(
             builder: (_) => _ValuePicker(
               title: title,
               values: values,
               selected: selected,
+              labelFor: _label,
+              colourFor: colourFor,
             ),
           ),
         );
@@ -273,16 +225,21 @@ class _PickerRow extends StatelessWidget {
   }
 }
 
+/// One facet's values, searchable, with a tick against each chosen one.
 class _ValuePicker extends StatefulWidget {
   const _ValuePicker({
     required this.title,
     required this.values,
     required this.selected,
+    required this.labelFor,
+    this.colourFor,
   });
 
   final String title;
   final List<String> values;
   final Set<String> selected;
+  final String Function(String) labelFor;
+  final Color Function(String)? colourFor;
 
   @override
   State<_ValuePicker> createState() => _ValuePickerState();
@@ -297,41 +254,40 @@ class _ValuePickerState extends State<_ValuePicker> {
     final needle = _query.toLowerCase();
     final shown = needle.isEmpty
         ? widget.values
-        : widget.values.where((v) => v.toLowerCase().contains(needle)).toList();
+        : widget.values
+              .where((v) => widget.labelFor(v).toLowerCase().contains(needle))
+              .toList();
+    final tint = CupertinoTheme.of(context).primaryColor;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        actions: [
-          if (_selected.isNotEmpty)
-            TextButton(
-              onPressed: () => setState(_selected.clear),
-              child: const Text('Clear'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(_selected),
-            child: const Text('Done'),
-          ),
-        ],
+    return CupertinoPageScaffold(
+      backgroundColor: listBackground,
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(widget.title),
+        automaticallyImplyLeading: false,
+        leading: CupertinoButton(
+          padding: EdgeInsets.zero,
+          alignment: Alignment.centerLeft,
+          onPressed: () => Navigator.of(context).pop(_selected),
+          child: const Text('Filter'),
+        ),
+        trailing: _selected.isEmpty
+            ? null
+            : CupertinoButton(
+                padding: EdgeInsets.zero,
+                alignment: Alignment.centerRight,
+                onPressed: () => setState(_selected.clear),
+                child: const Text('Clear'),
+              ),
       ),
-      body: Column(
+      child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
-              autofocus: false,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: CupertinoSearchTextField(
               autocorrect: false,
+              placeholder: 'Search ${widget.title.toLowerCase()}s',
               onChanged: (value) => setState(() => _query = value),
-              decoration: InputDecoration(
-                hintText: 'Search ${widget.title.toLowerCase()}s',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                isDense: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+              onSuffixTap: () => setState(() => _query = ''),
             ),
           ),
           Expanded(
@@ -339,14 +295,29 @@ class _ValuePickerState extends State<_ValuePicker> {
               itemCount: shown.length,
               itemBuilder: (context, index) {
                 final value = shown[index];
-                return CheckboxListTile(
-                  title: Text(value),
-                  value: _selected.contains(value),
-                  onChanged: (isOn) => setState(() {
-                    if (isOn ?? false) {
-                      _selected.add(value);
-                    } else {
+                final isOn = _selected.contains(value);
+                final colour = widget.colourFor?.call(value);
+
+                return CupertinoListTile.notched(
+                  title: Text(widget.labelFor(value)),
+                  leading: colour == null
+                      ? null
+                      : Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: colour,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                  trailing: isOn
+                      ? Icon(CupertinoIcons.checkmark, size: 20, color: tint)
+                      : null,
+                  onTap: () => setState(() {
+                    if (isOn) {
                       _selected.remove(value);
+                    } else {
+                      _selected.add(value);
                     }
                   }),
                 );

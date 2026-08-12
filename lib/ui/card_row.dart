@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 
 import '../data/card_filter.dart';
 import '../data/marvel_card.dart';
@@ -13,7 +13,12 @@ import 'theme.dart';
 /// The thumbnail is [thumbnailWidth] logical pixels against a scan of 710, so it
 /// decodes at a fraction of native size. A list that decoded these at full size would
 /// fill any image cache it was given within a screenful.
-class CardRow extends StatelessWidget {
+///
+/// Deliberately not a `CupertinoListTile`, which brings its own minimum height and
+/// padding: a fixed 48.6pt extent is what lets a 3,632-row list jump to an offset, and
+/// the 28pt thumbnail is what keeps a screenful of art inside the image cache. Both
+/// would be lost to the tile's own arithmetic.
+class CardRow extends StatefulWidget {
   const CardRow({required this.card, required this.onTap, super.key});
 
   final MarvelCard card;
@@ -26,23 +31,42 @@ class CardRow extends StatelessWidget {
   static const extent = thumbnailWidth / (710 / 1030) + 8;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final traits = CardFilter.splitTraits(card.traits);
+  State<CardRow> createState() => _CardRowState();
+}
 
-    return InkWell(
-      onTap: onTap,
+class _CardRowState extends State<CardRow> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final card = widget.card;
+    final traits = CardFilter.splitTraits(card.traits);
+    final brightness = CupertinoTheme.brightnessOf(context);
+
+    // iOS answers a touch by greying the row rather than with Material's spreading ink.
+    return GestureDetector(
+      onTap: widget.onTap,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         decoration: BoxDecoration(
+          color: _pressed
+              ? CupertinoColors.systemFill.resolveFrom(context)
+              : rowBackground.resolveFrom(context),
           border: Border(
-            bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+            bottom: BorderSide(
+              color: CupertinoColors.separator.resolveFrom(context),
+              width: 0.0,
+            ),
           ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            CardThumbnail(card: card, width: thumbnailWidth),
+            CardThumbnail(card: card, width: CardRow.thumbnailWidth),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -63,8 +87,7 @@ class CardRow extends StatelessWidget {
                           card.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
+                          style: rowTitleStyle(context),
                         ),
                       ),
                       // The subname rides on the name's line rather than taking one of
@@ -76,8 +99,7 @@ class CardRow extends StatelessWidget {
                             '  \u2014  ${card.subname}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                            style: rowCaptionStyle(context),
                           ),
                         ),
                     ],
@@ -89,8 +111,8 @@ class CardRow extends StatelessWidget {
                     ].join('  \u2014  '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: aspectTextColour(card.factionCode, theme.colorScheme),
+                    style: rowCaptionStyle(context).copyWith(
+                      color: aspectTextColour(card.factionCode, brightness),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -131,9 +153,7 @@ class CardThumbnail extends StatelessWidget {
                   border: Border.all(color: colour.withValues(alpha: 0.5)),
                   borderRadius: BorderRadius.circular(3),
                 ),
-                child: const Center(
-                  child: Icon(Icons.image_not_supported_outlined, size: 12),
-                ),
+                child: const Center(child: Icon(CupertinoIcons.photo, size: 12)),
               )
             : Image.asset(
                 'assets/CardImages/${card.frontImage}',

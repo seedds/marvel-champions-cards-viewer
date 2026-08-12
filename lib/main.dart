@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 
 import 'data/card_repository.dart';
 import 'data/settings.dart';
@@ -54,27 +54,28 @@ class _CardViewerAppState extends State<CardViewerApp> {
               final repository = snapshot.data;
               final error = snapshot.error;
 
-              // The scope goes *above* the MaterialApp, and so above the Navigator it
+                // The scope goes *above* the CupertinoApp, and so above the Navigator it
               // creates. Below it, a pushed route is a sibling of the home screen
               // rather than a descendant, and every card detail screen fails to find
               // the data.
               return CardRepositoryScope(
                 repository: repository,
-                // The MaterialApp reads themeMode, so something between it and the
+                // The CupertinoApp reads the theme, so something between it and the
                 // settings has to listen: SettingsScope only rebuilds what is *below*
                 // it, and the app is below it. Without this the setting is stored and
                 // applied on the next launch, which looks like the switch not working.
                 child: ListenableBuilder(
                   listenable: settings,
-                  builder: (context, _) => MaterialApp(
+                  builder: (context, _) => CupertinoApp(
                     title: 'Marvel Champions Cards',
-                    theme: buildTheme(Brightness.light),
-                    darkTheme: buildTheme(Brightness.dark),
-                    themeMode: settings.themeMode,
+                    // One theme rather than a light/dark pair: a Cupertino theme with
+                    // no brightness follows the device, so the chosen setting resolves
+                    // to a single theme here. See buildTheme.
+                    theme: buildTheme(settings.theme),
                     home: switch ((repository, error)) {
                       (_, final Object error) => _LoadFailed(error: error),
-                      (null, _) => const Scaffold(
-                          body: Center(child: CircularProgressIndicator()),
+                      (null, _) => const CupertinoPageScaffold(
+                          child: Center(child: CupertinoActivityIndicator()),
                         ),
                       _ => const HomeScreen(),
                     },
@@ -128,22 +129,18 @@ class _LoadFailed extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
+    return CupertinoPageScaffold(
+      child: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 48),
+              const Icon(CupertinoIcons.exclamationmark_triangle, size: 48),
               const SizedBox(height: 16),
               const Text('The bundled card data could not be read.'),
               const SizedBox(height: 8),
-              Text(
-                '$error',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              Text('$error', textAlign: TextAlign.center, style: captionStyle(context)),
             ],
           ),
         ),

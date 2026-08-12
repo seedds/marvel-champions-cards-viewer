@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 
 import 'browse_screen.dart';
 import 'decks_screen.dart';
@@ -6,47 +6,39 @@ import 'settings_screen.dart';
 
 /// The three places there are to be.
 ///
-/// An IndexedStack rather than a PageView: each tab keeps its scroll position, its
-/// search text and its filters while another is on top, which is what a person expects
-/// of a tab and what makes returning to a half-typed search not a loss.
-class HomeScreen extends StatefulWidget {
+/// `CupertinoTabScaffold` keeps every tab it has built alive and offstage, so each one
+/// holds its scroll position, its search text and its filters while another is on top --
+/// which is what a person expects of a tab, and what makes returning to a half-typed
+/// search not a loss.
+///
+/// Deliberately without a `CupertinoTabView` per tab: that gives each tab its own
+/// Navigator, which would leave the tab bar visible underneath a card. A card's art is
+/// the point of the screen it is on, so a detail screen covers the tab bar instead,
+/// pushed on the one root Navigator.
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  int _tab = 0;
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _tab,
-        children: const [BrowseScreen(), DecksScreen(), SettingsScreen()],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: (index) => setState(() => _tab = index),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.style_outlined),
-            selectedIcon: Icon(Icons.style),
+    return CupertinoTabScaffold(
+      tabBar: CupertinoTabBar(
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.square_stack_3d_down_right),
             label: 'Cards',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.layers_outlined),
-            selectedIcon: Icon(Icons.layers),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.rectangle_stack),
             label: 'Decks',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
+          BottomNavigationBarItem(icon: Icon(CupertinoIcons.settings), label: 'Settings'),
         ],
       ),
+      tabBuilder: (context, index) => switch (index) {
+        0 => const BrowseScreen(),
+        1 => const DecksScreen(),
+        _ => const SettingsScreen(),
+      },
     );
   }
 }

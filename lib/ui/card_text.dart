@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 
 /// Card text as printed: `<b>`, `<i>` and `[icon]` markup turned into spans.
 ///
@@ -14,7 +14,7 @@ class CardText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = style ?? Theme.of(context).textTheme.bodyMedium!;
+    final base = style ?? CupertinoTheme.of(context).textTheme.textStyle;
     return Text.rich(
       TextSpan(children: _parse(text, base)),
       style: base,
@@ -105,7 +105,7 @@ InlineSpan _iconSpan(String token, TextStyle style) {
             style: style.copyWith(
               fontSize: (style.fontSize ?? 14) * 0.8,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: CupertinoColors.white,
               height: 1.1,
             ),
           ),

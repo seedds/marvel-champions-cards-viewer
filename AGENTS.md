@@ -12,7 +12,7 @@ python tools/build_assets.py            # rebuild assets
 python tools/build_assets.py --dry-run  # report, change nothing
 
 flutter analyze                                   # must be clean
-flutter test                                      # data, text and the screens. 76 tests, ~8s
+flutter test                                      # data, text and the screens. 80 tests, ~8s
 flutter test integration_test -d <simulator-id>   # the memory ceiling only, on a device
 flutter run -d <simulator-id>
 ```
@@ -171,6 +171,10 @@ ignoring them.
 | A hero pack's name identifies it | Two are `Black Panther Hero Pack` — T'Challa's and Shuri's — with identical bag *paths*, so nothing in the save's structure separates them. Decks are named and keyed by set name instead, which does. |
 | A widget test can boot the app and `pumpAndSettle` | Not this app. Loading is real async — a bundle read and an isolate — and the test clock is fake, so `pumpAndSettle` cannot advance it and times out. `boot` in `test/screens_test.dart` alternates `runAsync` with `pump` instead. |
 | `rootBundle` is fresh each test | It memoises the `Future` per key, and one created inside a previous test's fake-async zone never completes again. Without `setUp(rootBundle.clear)` the first test passes and every one after it hangs on the loading spinner. |
+| `MediaQuery.paddingOf` reports the nav bar's height | Only *below* the `CupertinoPageScaffold`. The scaffold hands the bar's inset to its **child**, so a `build` that returns the scaffold and calls `paddingOf(context)` in the same breath reads zero — and the list it pads starts under the blur. A `Builder` is what puts the context on the right side of it. Cost the decks tab its first row, which could not be tapped. |
+| A Cupertino bar takes its own space, like an `AppBar` | Neither bar does. Both are translucent and content scrolls behind them, so every list needs `listInsets` at both ends. A Material `AppBar` and `NavigationBar` were opaque, which is why nothing needed this before. |
+| iOS has a tooltip | It does not, and `Tooltip` is Material's. The flip and filter buttons carried `tooltip:` both as the label and as the handle their tests found them by; they now carry `Semantics(label:)` and are found by icon. |
+| A `CupertinoNavigationBar` has a `bottom` like an `AppBar` | The static one does not — only `CupertinoSliverNavigationBar` does. A deck's card count moved to a strip below the bar instead. |
 
 ## Cards printed more than once
 
@@ -205,16 +209,25 @@ byte-identical art, and set and pack alone leave four rows nothing tells apart.
 
 ## The app
 
-Three tabs. **Cards** is a browser over `cards.json` — one card per row, a search box, a
-filter sheet, and a detail screen that swipes between cards, flips a two-sided one, and
-picks between the printings of a card printed more than once.
+**Cupertino throughout.** The app is iOS-only, so it is built out of `cupertino.dart` and
+nothing else: a `CupertinoTabScaffold`, `CupertinoPageScaffold` and nav bar per screen,
+`CupertinoListSection.insetGrouped` where iOS would group rows. **An import of
+`material.dart` anywhere under `lib/` is a bug** — `grep -r material lib/` should find
+only prose. That is also why `ThemeMode` is not used for the theme setting: it is
+declared in Material, and `data/settings.dart` has its own `AppTheme` instead.
+
+Three tabs. **Cards** is a browser over `cards.json` — one card per row, a search field
+under the nav bar, a filter sheet, and a detail screen that swipes between cards, flips a
+two-sided one, and picks between the printings of a card printed more than once.
 **Decks** is the 67 pre-built hero pack decks from `decks.json`. **Settings** is the
-theme. No state-management package: the card data is one immutable list that never
+theme, as one navigation row saying what it is set to which opens a page of the three
+options — the shape of iOS's own Settings, rather than three radios on the page.
+No state-management package: the card data is one immutable list that never
 changes after it loads, so a `CardRepository` behind an `InheritedWidget` is the whole of
 it. `path_provider` is the only third-party dependency, and only so that the theme
 choice has somewhere to live.
 
-Four facts decide the shape of everything else.
+Five facts decide the shape of everything else.
 
 **A record is not always a card.** 324 of the 3,956 records are the *back* of another
 card, so browsing shows **3,632** entries. A record is a back when something links *to*
@@ -241,7 +254,15 @@ and text the other.
 **A row is two lines and 48.6pt.** The thumbnail is 28pt wide and sets the height; the
 name and the type-and-traits line fit inside it. `CardRow.extent` is that arithmetic,
 and the list's `itemExtent` reads it rather than restating it — a fixed extent is what
-lets a 3,632-row list jump to an offset instead of measuring its way there.
+lets a 3,632-row list jump to an offset instead of measuring its way there. This is why
+`CardRow` is not a `CupertinoListTile`: the tile's own minimum height and padding would
+take both the extent and the 28pt thumbnail with them.
+
+**Both bars are translucent, so a list has to make room for them.** A Cupertino nav bar
+and tab bar are blurred glass that content scrolls *behind*, where Material's `AppBar`
+and `NavigationBar` were opaque and took their space out of the layout. `listInsets` in
+`ui/theme.dart` is that room, and every scrolling list passes it. Getting it wrong is not
+subtle-but-harmless: a row under the nav bar's blur cannot be tapped at all.
 
 | File | Holds |
 | --- | --- |
@@ -251,10 +272,13 @@ lets a 3,632-row list jump to an offset instead of measuring its way there.
 | `data/deck.dart` | One pre-built deck, transcribed. Its hero is never among its slots. |
 | `data/settings.dart` | The theme choice, and the JSON file it lives in. |
 | `ui/card_text.dart` | `<b>`, `<i>` and the 46 `[icon]` tokens. |
-| `ui/theme.dart` | Both themes from one seed, and the aspect colours — including the darkened variant that keeps an aspect legible as text on a light background. |
+| `ui/theme.dart` | The theme the chosen setting resolves to, `listInsets` for the translucent bars, the three named text sizes, and the aspect colours — including the darkened variant that keeps an aspect legible as text on a light background. |
 
 ## Conventions
 
+- **The app is Cupertino throughout.** An import of `material.dart` under `lib/` is a
+  bug. Where a Material widget has no iOS counterpart — a chip, a tooltip, a badge — the
+  answer is the iOS pattern for the same job, not a Material one dressed differently.
 - **Settle data quirks in the build script, not the app.** Prefer adding to
   `tools/build_assets.py` over adding a branch to a widget. If a screen needs a special
   case for one card, the special case is in the wrong place.

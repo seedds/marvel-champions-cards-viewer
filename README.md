@@ -8,7 +8,7 @@ hero pack decks, and a theme setting. A card's detail screen swipes to its neigh
 flips a two-sided card, and picks between the printings of a card printed more than
 once.
 
-iOS only for now.
+iOS only, and Cupertino throughout — no Material widgets anywhere in the app.
 
 ## Getting started
 
@@ -38,7 +38,7 @@ python tools/build_assets.py --skip-images  # rebuild the JSON only, no network
 
 ```sh
 flutter analyze                                   # must be clean
-flutter test                                      # 76 tests, ~8s, headless
+flutter test                                      # 80 tests, ~8s, headless
 flutter test integration_test -d <simulator-id>   # the memory ceiling, needs a device
 ```
 

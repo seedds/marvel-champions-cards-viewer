@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:marvel_champions_cards_viewer/ui/card_text.dart';
 
@@ -19,7 +19,7 @@ String _renderedText(WidgetTester tester) {
 
 Future<void> _pump(WidgetTester tester, String markup) {
   return tester.pumpWidget(
-    MaterialApp(home: Scaffold(body: CardText(markup))),
+    CupertinoApp(home: CupertinoPageScaffold(child: CardText(markup))),
   );
 }
 

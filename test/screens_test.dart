@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:marvel_champions_cards_viewer/main.dart';
+import 'package:marvel_champions_cards_viewer/ui/browse_screen.dart';
 import 'package:marvel_champions_cards_viewer/ui/card_detail_screen.dart';
 import 'package:marvel_champions_cards_viewer/ui/card_row.dart';
 
@@ -40,9 +41,13 @@ void main() {
   }
 
   Future<void> search(WidgetTester tester, String query) async {
-    await tester.enterText(find.byType(TextField).first, query);
+    await tester.enterText(find.byType(CupertinoTextField).first, query);
     await tester.pumpAndSettle();
   }
+
+  /// The filter and flip buttons are found by their icon: iOS has no tooltip, which is
+  /// how the Material versions were found.
+  Finder button(IconData icon) => find.byIcon(icon);
 
   Future<void> openFirstResult(WidgetTester tester) async {
     await tester.tap(find.byType(CardRow).first);
@@ -90,7 +95,7 @@ void main() {
     // 01040a Black Panther, whose back is T'Challa the alter-ego.
     expect(find.text('Black Panther'), findsWidgets);
 
-    final flip = find.byTooltip('Flip');
+    final flip = button(flipIcon);
     expect(flip, findsOneWidget, reason: 'a two-sided card offers a flip');
     await tester.tap(flip);
     await tester.pumpAndSettle();
@@ -111,7 +116,7 @@ void main() {
     Iterable<String> assets() => imagesOnScreen(tester).map((i) => i.asset);
     expect(assets(), contains('assets/CardImages/01040a.webp'));
 
-    // The picture is the whole screen, so it is the obvious thing to tap. The AppBar
+    // The picture is the whole screen, so it is the obvious thing to tap. The nav bar
     // button stays as the affordance that says the card has another side at all.
     await tester.tap(find.byType(Image).first);
     await tester.pumpAndSettle();
@@ -156,8 +161,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(CardRow), findsAny, reason: 'back on the browse list');
-    // The only test here that depends on the platform: the edge-swipe is Cupertino's,
-    // and the headless test binding reports as Android, where the gesture does not
+    // The only test here that depends on the platform: the edge-swipe is the iOS back
+    // gesture, and the headless test binding reports as Android, where it does not
     // exist. The app is iOS-only, so the variant states outright what the rest of the
     // file gets for free from running on an iOS device.
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
@@ -188,7 +193,7 @@ void main() {
     // a box saying "not scanned" is a card's height of nothing, and would push the
     // only information there is below the fold.
     expect(imagesOnScreen(tester), isEmpty, reason: 'no art, and no empty frame');
-    // The card's own heading, not the AppBar's title, which has the same words.
+    // The card's own heading, not the nav bar's title, which has the same words.
     final heading = tester.getTopLeft(find.text('Psychic Misdirection').last);
     expect(heading.dy, lessThan(200),
         reason: 'the name is near the top of the screen, not a card-height down it');
@@ -265,7 +270,7 @@ void main() {
 
       final art = tester.getRect(find.byKey(artKey));
       expect(art.top, lessThan(80),
-          reason: 'the picture starts just below the AppBar, not a third of the way '
+          reason: 'the picture starts just below the nav bar, not a third of the way '
               'down the screen');
 
       // The printings follow the picture rather than being pinned to the bottom edge,
@@ -296,6 +301,9 @@ void main() {
       // No picker to make room for, but the picture still starts where every other
       // card's does: a scan should not jump down the screen for want of a reprint.
       expect(tester.getRect(find.byKey(artKey)).top, lessThan(80));
+      // A CupertinoNavigationBar is translucent, so the art draws behind it and the
+      // SafeArea is what keeps it clear. Below the bar, not under it.
+      expect(tester.getRect(find.byKey(artKey)).top, greaterThan(44));
     });
 
     // The space reserved comes from the card's `landscape` flag, so a sideways card
@@ -335,7 +343,7 @@ void main() {
     await openFirstResult(tester);
 
     expect(find.text('Backflip'), findsWidgets);
-    expect(find.byTooltip('Flip'), findsNothing);
+    expect(button(flipIcon), findsNothing);
   });
 
   testWidgets('a landscape card keeps its own orientation', (tester) async {
@@ -376,42 +384,48 @@ void main() {
 
   testWidgets('the filter sheet offers the facets', (tester) async {
     await boot(tester);
-    await tester.tap(find.byTooltip('Filter'));
+    await tester.tap(button(filterIcon));
     await tester.pumpAndSettle();
 
-    expect(find.text('Aspect'), findsOneWidget);
-    expect(find.text('Type'), findsOneWidget);
-
-    // Pack, Set and Trait sit below the fold. The browse list is still mounted behind
-    // the sheet, so the scroll has to name the sheet's own scrollable.
-    final sheetList = find.descendant(
-      of: find.byType(DraggableScrollableSheet),
-      matching: find.byType(Scrollable),
-    );
-    for (final facet in ['Pack', 'Set', 'Trait']) {
-      await tester.scrollUntilVisible(find.text(facet), 200, scrollable: sheetList);
-      expect(find.text(facet), findsOneWidget);
+    // Five drill-down rows, all on one page: there is nothing to scroll to, which is
+    // the point of the shape. Each says how many values it is not narrowing.
+    for (final facet in ['Aspect', 'Type', 'Pack', 'Set', 'Trait']) {
+      expect(find.text(facet), findsOneWidget, reason: facet);
     }
+    expect(find.text('Any'), findsNWidgets(5), reason: 'nothing is filtered yet');
   });
 
   testWidgets('choosing an aspect filters the list', (tester) async {
     await boot(tester);
-    await tester.tap(find.byTooltip('Filter'));
+    await tester.tap(button(filterIcon));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilterChip, 'Leadership'));
+    // Aspect is a page of its own now, so the choice is: open it, tick Leadership,
+    // back out to the sheet, and close the sheet.
+    await tester.tap(find.text('Aspect'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Leadership'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Filter'));
+    await tester.pumpAndSettle();
+
+    // The sheet reports the choice back before it is applied.
+    expect(find.text('Leadership'), findsOneWidget, reason: 'the row says what is set');
+
     await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
 
     expect(find.text('3632 cards'), findsNothing);
     expect(find.byType(CardRow), findsAny);
+    // The count of active facets rides beside the filter icon, where Material had a
+    // badge over it.
+    expect(find.text('1'), findsOneWidget);
   });
 
   group('the tabs', () {
     Future<void> openTab(WidgetTester tester, String label) async {
       await tester.tap(find.descendant(
-        of: find.byType(NavigationBar),
+        of: find.byType(CupertinoTabBar),
         matching: find.text(label),
       ));
       await tester.pumpAndSettle();
@@ -423,13 +437,30 @@ void main() {
       expect(find.text('3632 cards'), findsNothing);
 
       await openTab(tester, 'Settings');
-      expect(find.text('Theme'), findsNothing, reason: 'the header is upper-cased');
-      expect(find.text('System'), findsOneWidget);
+      // The theme is one navigation row saying what it is set to, the way iOS spells a
+      // choice, rather than three radios on this page.
+      expect(find.text('Theme'), findsOneWidget);
+      expect(find.text('System'), findsOneWidget, reason: 'the row says the setting');
 
-      // An IndexedStack rather than a rebuild: the query is still typed in.
+      // The tab is kept alive rather than rebuilt: the query is still typed in.
       await openTab(tester, 'Cards');
       expect(find.text('3632 cards'), findsNothing);
       expect(find.text('wakanda forever'), findsOneWidget);
+    });
+
+    testWidgets('the theme row opens a page of the options', (tester) async {
+      await boot(tester);
+      await openTab(tester, 'Settings');
+
+      await tester.tap(find.text('Theme'));
+      await tester.pumpAndSettle();
+
+      // All three on the pushed page, with a tick against the one in force.
+      for (final label in ['System', 'Light', 'Dark']) {
+        expect(find.text(label), findsWidgets, reason: label);
+      }
+      expect(find.byIcon(CupertinoIcons.checkmark), findsOneWidget,
+          reason: 'exactly one option is ticked');
     });
 
     testWidgets('the decks tab lists every hero pack deck', (tester) async {
@@ -455,18 +486,24 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(PageView), findsOneWidget);
 
-      // The detail screen covers the tab bar rather than sitting above it.
-      expect(find.byType(NavigationBar), findsNothing);
+      // The detail screen covers the tab bar rather than sitting above it. This is why
+      // the tabs are not each a CupertinoTabView: a per-tab Navigator would leave the
+      // tab bar visible under the card.
+      expect(find.byType(CupertinoTabBar), findsNothing);
     });
 
     testWidgets('choosing Light repaints the app', (tester) async {
       await boot(tester);
-      // The theme as the widgets below MaterialApp actually see it, rather than a
-      // Scaffold's own backgroundColor, which is null unless something set it.
+      // The brightness as the widgets below CupertinoApp actually see it, rather than
+      // the theme the app was handed -- which is what proves the choice reached them.
+      // Read from the theme page itself: it is pushed on the root navigator, so it
+      // covers the tab bar and there is no tab bar on screen to read from.
       Brightness brightness() =>
-          Theme.of(tester.element(find.byType(NavigationBar))).brightness;
+          CupertinoTheme.brightnessOf(tester.element(find.text('Dark')));
 
       await openTab(tester, 'Settings');
+      await tester.tap(find.text('Theme'));
+      await tester.pumpAndSettle();
 
       // Both explicit modes are asserted rather than compared against the starting
       // one: the device's own setting decides what System looks like, so on a light
