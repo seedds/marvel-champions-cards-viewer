@@ -78,11 +78,11 @@ rewrites nothing.
 
 ## Coverage
 
-3,760 of 3,956 cards have art. Of the 196 without:
+3,774 of 3,956 cards have art. Of the 182 without:
 
-- **137** are another side or printing of a card that does have art — an alternate
+- **146** are another side or printing of a card that does have art — an alternate
   artwork, or the back of a two-sided card the community scanned front-only.
-- **59** have no scan anywhere under their code. Magneto's Mutant Genesis attachments
+- **36** have no scan anywhere under their code. Magneto's Mutant Genesis attachments
   and the Expert Kang villains are the largest groups.
 
 This is the ceiling of the TTS save, not a bug in the pipeline. Both numbers should fall
@@ -94,6 +94,15 @@ resolved to `01040a`, and the loser was not left artless but **overwritten** —
 had been showing Shuri's card since the first build. Which is exactly the failure the
 override file's Spider-Man note warns about, on a pack that had not been looked at.
 A missing picture announces itself; a wrong one does not.
+
+Shuri's Wakanda Forever! `51005` was the same trap on the same two bags, and it took 14
+cards with it. A lettered run — `01043a`–`01043d` and four more like it — was being
+collapsed onto its first code on the theory that such a run is one card in several
+artworks. No run in the save ever was: all six are distinct cards separated by a
+resource pip or by their text. Every member wrote one filename, so the last crop won,
+and `01043a` had been showing Shuri's 2025 card while the other four Core Set printings
+and `51005` itself showed nothing. `decks.json` had T'Challa's `01043a` listed inside
+Shuri's deck for the same reason.
 
 ## Matching scans to cards
 
@@ -110,7 +119,8 @@ against 4,813 distinct scans:
 | The folded name is unique in marvelsdb | 3,493 |
 | Context: two-sidedness, orientation, player-vs-encounter, bag type, bag aspect, bag owner, set and pack name | 916 |
 | A run of same-named cards, ordered by their position in the deck | 148 |
-| `tools/card_overrides.json` | 112 |
+| `tools/card_overrides.json` | 142 |
+| A two-sided card's two codes, collapsed to its front | 71 |
 | Deliberately not cards — trackers, reference cards | 22 |
 | A close name, but only inside the card's own set or pack | 21 |
 | **Unmatched** | **0** |
@@ -147,7 +157,9 @@ ignoring them.
 | A sideways card is stored sideways | It is stored upright, so that every cell of a sheet is one shape, and TTS turns it when dealing. `SidewaysCard` marks these and the crop rotates them; without it every scheme comes out on its side. |
 | `type_code` tells the app which cards are landscape | Nearly. Four attachments, an ally, a support, an obligation and a hero are printed sideways against type, and one side scheme is upright. The save's flag is the only source, so it is carried to `cards.json` as `landscape` rather than re-derived in a widget. For the 202 cards with no scan there is nothing to read, and type stands in. |
 | `landscape` and the image's own shape can disagree | Once, for `42001c` Archangel, which is a genuinely oversized 1430×1030 card alone on a 1×1 sheet — not a rotation. Every other card matches its pixels. |
-| A lettered code run is a card's sides | Sometimes. `11007a`/`11007b` are one card's two sides, linked by `back_link`. `01043a` through `01043d` are one card in four artworks, linked by nothing. Both collapse to the first code; they are not ambiguities. |
+| A lettered code run is a card's sides | Only when `back_link` says so. `11007a`/`11007b` are one card's two sides and collapse to the front. `01043a`–`01043d`, Wakanda Forever!, links to nothing and is **four different cards** a deck holds at once, differing by resource pip. Collapsing a run was worth 30 scans and every one of them was this; see the row below. |
+| A run with one name, one type and no links is one card in several artworks | It never once was. Six runs reach the matcher — Wakanda Forever!, Jubilee's Firecracker, Flash of Light and Plasmoid Energy, Echo's Photographic Reflexes, Ultron's Android Efficiency — and all six are distinct cards separated by pips or by text. Collapsing them pointed every member at one filename, so the last crop won and the other 14 cards wore its art. `01043a` showed Shuri's `51005`. |
+| A run can be read positionally instead | Not this kind. The save lists **all six** of these runs in reverse cell order, so `_stage_matches` gets the two ends backwards and only the middle right — 8 of 12 wrong when measured against the crops. The printed collector number is the only authority, and these runs are in `card_overrides.json`. |
 | Two records with one name and one text are one card | Only if *everything* printed on them agrees. Kang (Iron Lad) `11003` and the Expert `11036` share both and differ by health; `01044` Vibranium allows 3 per deck where Shuri's `51006` allows 2. See "Cards printed more than once". |
 | A reprint goes into a new encounter set | Often, and not always. Civil War prints Superhero Registration Act four times into the *same* set, at 63, 96, 121 and 122, and the Enchantress set holds five Hypnotic Gaze. A rule keyed on the set admits the first — a fifth printing is in Synthezoid Smackdown — and refuses the second. |
 | `duplicate_of` marks a reprint | It marks 342 upstream records, every one of them nameless — a code, a pack and a pointer. `build_records` drops them all, and none of them is the case the app cares about: a reprint with its own code and its own art carries no pointer at all. |
@@ -221,7 +233,7 @@ decode size was ever set — green, and proving nothing.
 
 **A scan is the card, and its absence is not a hole.** Everything the heading, stats and
 text would say is already printed on the picture, so a scanned side shows the picture
-alone. The 71 fronts and 125 backs with no scan show that text *in the picture's place*,
+alone. The 57 fronts and 125 backs with no scan show that text *in the picture's place*,
 with nothing above it: a box saying "not scanned" is a card's height of dead space above
 the only information there is. The choice is per side, so The Break-In! shows art one way
 and text the other.
@@ -260,7 +272,7 @@ lets a 3,632-row list jump to an offset instead of measuring its way there.
 2665262903.json              the TTS save, replaced on update
 tools/
   build_assets.py            the pipeline
-  card_overrides.json        134 hand-resolved scans, with the reasoning
+  card_overrides.json        164 hand-resolved scans, with the reasoning
 assets/
   cards.json                 committed
   decks.json                 committed

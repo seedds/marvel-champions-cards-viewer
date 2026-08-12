@@ -231,8 +231,14 @@ void main() {
       // 3,759 until 51001a Shuri's Black Panther was pinned. Both Black Panther hero
       // packs hold an object called "Black Panther" and both resolved to 01040a, so
       // Shuri's scan overwrote T'Challa's art and Shuri's card had none.
-      expect(all.where((c) => c.hasArt), hasLength(3760));
-      expect(all.where((c) => !c.hasArt), hasLength(196));
+      //
+      // 3,760 until the matcher stopped collapsing a lettered run of codes onto its
+      // first code. Fourteen cards were losing their art that way -- the four Wakanda
+      // Forever! printings and Shuri's, the Jubilee and Echo pip runs, and Ultron's
+      // three Android Efficiency -- because every member of a run wrote one filename
+      // and the last crop won.
+      expect(all.where((c) => c.hasArt), hasLength(3774));
+      expect(all.where((c) => !c.hasArt), hasLength(182));
     });
 
     // The build script reads orientation from the TTS save, where it is the only

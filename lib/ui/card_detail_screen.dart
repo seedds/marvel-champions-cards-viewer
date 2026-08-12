@@ -142,7 +142,7 @@ class _CardPageState extends State<_CardPage> {
 
     // The scan is the card: everything the heading, stats and text below would say is
     // already printed on it, and better. The written-out version is the fallback for
-    // a side with no scan, which is 71 of 3,632 fronts and 125 of 324 backs. The
+    // a side with no scan, which is 57 of 3,632 fronts and 125 of 324 backs. The
     // choice is per side rather than per card -- The Break-In! is scanned and its
     // back is not, so it shows art one way and text the other.
     //

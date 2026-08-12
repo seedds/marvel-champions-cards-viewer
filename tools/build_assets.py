@@ -514,17 +514,27 @@ def _printed_run(candidates: list[dict], wanted: int) -> list[dict] | None:
 
 
 def _one_card_many_codes(candidates: list[dict]) -> str | None:
-    """Collapse candidates that are all one physical card, to that card's front.
+    """Collapse a two-sided card's pair of codes to its front.
 
-    Two shapes reach here, both spelled as several codes sharing a five-digit stem.
     A linked pair -- 11007a with back_link 11007b -- is one card printed on two sides,
-    and the scan is of its front. A lettered run with no links -- 01043a through
-    01043d, Wakanda Forever! -- is one card printed in several artworks, and any of
-    them names it. Either way the answer is the first side, and neither is an
-    ambiguity worth asking about.
+    and a scan of it is a scan of its front. That is the only shape a lettered run
+    collapses on.
+
+    A lettered run with *no* links does not collapse, however much it looks like one
+    card in several artworks. 01043a-d, Wakanda Forever!, is the case that proves it:
+    four codes, one name, one type, no links -- and four physically different cards,
+    which a Black Panther deck holds all of at once because they differ by resource
+    pip. Collapsing them sent all four, plus Shuri's separate 51005, to 01043a, and
+    since every one of them then wrote the same filename the last crop won and the
+    other four were left wearing its art. Every run this branch ever collapsed turned
+    out to be that: pips on Wakanda Forever!, Firecracker, Flash of Light, Plasmoid
+    Energy and Photographic Reflexes; differing text on Android Efficiency. Not one
+    was a card printed twice.
     """
+    if len(candidates) != 2:
+        return None
     stems = {c["code"][:5] for c in candidates}
-    if len(stems) != 1 or len(candidates) < 2:
+    if len(stems) != 1:
         return None
     if not all(len(c["code"]) == 6 for c in candidates):
         return None
@@ -532,16 +542,7 @@ def _one_card_many_codes(candidates: list[dict]) -> str | None:
     first = min(candidates, key=lambda c: c["code"])
     others = {c["code"] for c in candidates} - {first["code"]}
 
-    linked = first.get("back_link")
-    if linked in others and len(candidates) == 2:
-        return first["code"]
-
-    # An art run: every side shares the name and the type, none links to another.
-    if not any(c.get("back_link") for c in candidates):
-        if len({c.get("type_code") for c in candidates}) == 1:
-            return first["code"]
-
-    return None
+    return first["code"] if first.get("back_link") in others else None
 
 
 def _by_near_name(
@@ -954,7 +955,15 @@ def plan_crops(
 # Codes that genuinely have two scans, verified by looking at them. Kang's standard and
 # Expert printings differ only in the hit points printed on them, and Seduced was
 # printed in two sets; each pair is one card, so either cell is a correct answer.
-TWO_SCANS_ARE_ONE_CARD = {"11001", "11006", "55015"}
+#
+# The rest are cards a deck holds two copies of, scanned twice because the save holds a
+# cell per physical copy. Wakanda Forever! 01043d is quantity 2 and its two scans are
+# numbered 6/15 and 7/15, both printed 43D; Echo's Photographic Reflexes 60040a-c are
+# quantity 2 apiece. Either cell of such a pair is the same card.
+TWO_SCANS_ARE_ONE_CARD = {
+    "11001", "11006", "55015",
+    "01043d", "60040a", "60040b", "60040c",
+}
 
 
 def _check_one_card_per_code(claims: dict[str, dict[tuple[str, int], TTSCard]]) -> None:
