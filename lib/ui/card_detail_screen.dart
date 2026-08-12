@@ -172,35 +172,41 @@ class _CardPageState extends State<_CardPage> {
     }
 
     final art = _Art(
+      key: artKey,
       image: image,
+      // The side on show decides the shape, not the card: 10 cards are portrait one
+      // way and landscape the other -- Criminal Enterprise, both Choosing Sides. `face`
+      // is already the record for the side being drawn.
+      landscape: face.landscape,
       onTap: widget.onFlip,
     );
-
-    if (picker == null) {
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Center(child: art),
-        ),
-      );
-    }
 
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
         child: Column(
           children: [
-            // The art takes whatever the picker leaves. The picker asks only for its
-            // own rows and no more -- the largest group is five -- so a card printed
-            // twice gives up two rows' worth of picture and not a third of the screen.
-            Expanded(child: Center(child: art)),
-            const Divider(height: 1),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: printings.length * CardRow.extent,
+            // Flexible rather than Expanded, so the picture asks for its own height and
+            // no more: a portrait scan on a phone is limited by the width, and under
+            // Expanded the leftover height would be split above and below it. Here the
+            // column packs from the top instead, the printings sit directly beneath the
+            // art rather than against the bottom edge, and the slack falls below both.
+            // Still flexible, so a card too tall for the space shrinks to fit rather
+            // than pushing the picker off the screen.
+            Flexible(child: art),
+            // The picker asks only for its own rows -- the largest group is five -- so
+            // a card printed twice gives up two rows' worth of picture, not a third of
+            // the screen.
+            if (picker != null) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: printings.length * CardRow.extent,
+                ),
+                child: picker,
               ),
-              child: picker,
-            ),
+            ],
           ],
         ),
       ),
@@ -211,6 +217,11 @@ class _CardPageState extends State<_CardPage> {
 String _backTitle(MarvelCard front, MarvelCard? linkedBack) =>
     linkedBack?.name ?? front.backName ?? front.name;
 
+/// The big picture, as opposed to the thumbnail the printing picker shows for the same
+/// card. Both draw the same asset, so a test looking for the art by its image cannot
+/// tell them apart; this can.
+const artKey = ValueKey('card art');
+
 /// The card's picture. A side with no scan does not reach here: it shows its text in
 /// this space instead of a placeholder.
 ///
@@ -218,28 +229,45 @@ String _backTitle(MarvelCard front, MarvelCard? linkedBack) =>
 /// the picture alone rather than the whole screen, so that a tap meant for the printing
 /// picker below does not turn the card over.
 class _Art extends StatelessWidget {
-  const _Art({required this.image, this.onTap});
+  const _Art({
+    required this.image,
+    required this.landscape,
+    this.onTap,
+    super.key,
+  });
 
   final String image;
+
+  /// The orientation of the side on show, which decides how much room the picture
+  /// claims before it has decoded.
+  final bool landscape;
+
   final VoidCallback? onTap;
+
+  /// The printed card, and so every scan of one.
+  static const _portraitRatio = 710 / 1030;
 
   @override
   Widget build(BuildContext context) {
-    // Fitted to whatever space it is given rather than laid out from the card's
-    // orientation: the scans square their corners, and the one card whose pixels
-    // disagree with its `landscape` flag -- 42001c Archangel, genuinely 1430x1030 and
-    // not a rotation -- would be cropped by a ratio derived from the flag. The clip is
-    // inside the fit so it rounds the picture's corners and not the empty space
-    // beside it.
+    // The box is claimed from the card's own `landscape` flag rather than measured
+    // from the picture, because the picture has no size until it has decoded. Sizing
+    // to the image would collapse this to nothing on the first frame and shove
+    // whatever is below it up the screen, then drop it as the scan arrives.
+    //
+    // The fit stays `contain`, so the flag decides only how much space to reserve and
+    // never crops: 42001c Archangel is genuinely 1430x1030 rather than rotated, and
+    // letterboxes by a hair inside the box its flag asks for.
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: LayoutBuilder(
-        builder: (context, constraints) => FittedBox(
-          child: ClipRRect(
+      child: AspectRatio(
+        aspectRatio: landscape ? 1 / _portraitRatio : _portraitRatio,
+        child: LayoutBuilder(
+          builder: (context, constraints) => ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Image.asset(
               'assets/CardImages/$image',
+              fit: BoxFit.contain,
               // Decoded no wider than it can be drawn, rather than at the scan's
               // native 710px, which matters when several detail screens are on the
               // stack. ResizeImage does not upscale, so this clamps to the scan.

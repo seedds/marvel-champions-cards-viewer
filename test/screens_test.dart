@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:marvel_champions_cards_viewer/main.dart';
+import 'package:marvel_champions_cards_viewer/ui/card_detail_screen.dart';
 import 'package:marvel_champions_cards_viewer/ui/card_row.dart';
 
 /// Walks the screens a person actually uses.
@@ -242,6 +243,73 @@ void main() {
     // One printing, so the art keeps the whole screen exactly as it did before.
     expect(find.text('Core Set'), findsNothing);
     expect(imagesOnScreen(tester), hasLength(1));
+  });
+
+  // A phone shape on purpose. On the 800x600 default a portrait scan is limited by the
+  // height and fills the space whether it is top-aligned or centred, so these
+  // assertions would pass either way and prove nothing. At 390x844 the scan is limited
+  // by the width, leaving real slack for the layout to place.
+  group('on a phone-shaped screen', () {
+    setUp(() {
+      final view = TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
+      view.physicalSize = const Size(390, 844);
+      view.devicePixelRatio = 1;
+      addTearDown(view.reset);
+    });
+
+    testWidgets('the art sits at the top with its printings under it',
+        (tester) async {
+      await boot(tester);
+      await search(tester, 'hydra mercenary');
+      await openFirstResult(tester);
+
+      final art = tester.getRect(find.byKey(artKey));
+      expect(art.top, lessThan(80),
+          reason: 'the picture starts just below the AppBar, not a third of the way '
+              'down the screen');
+
+      // The printings follow the picture rather than being pinned to the bottom edge,
+      // so the gap between them is the divider and nothing else.
+      final picker = tester.getRect(find.text('Rhino'));
+      expect(picker.top - art.bottom, lessThan(60),
+          reason: 'the printings sit directly beneath the art');
+
+      // Whatever space is left over is below both, which is the point of the change.
+      expect(tester.getRect(find.text('Winter Soldier Nemesis')).bottom,
+          lessThan(800), reason: 'the whole column is packed towards the top');
+
+      // Everything above is measured before any image has actually decoded -- the test
+      // clock is fake -- which is the point. The art claims its box from the card's
+      // `landscape` flag, so the picture is 366x531 on the first frame and the
+      // printings are already in their final place. Sized from the image instead, this
+      // would be 0x0 here and the printings would sit under the AppBar until the scan
+      // arrived and shoved them down the screen.
+      expect(art.width, moreOrLessEquals(366, epsilon: 1));
+      expect(art.height, moreOrLessEquals(531, epsilon: 1));
+    });
+
+    testWidgets('a card printed once is top-aligned too', (tester) async {
+      await boot(tester);
+      await search(tester, 'backflip');
+      await openFirstResult(tester);
+
+      // No picker to make room for, but the picture still starts where every other
+      // card's does: a scan should not jump down the screen for want of a reprint.
+      expect(tester.getRect(find.byKey(artKey)).top, lessThan(80));
+    });
+
+    // The space reserved comes from the card's `landscape` flag, so a sideways card
+    // must claim a sideways box -- and claim it before decoding, like a portrait one.
+    testWidgets('a landscape card reserves a landscape box', (tester) async {
+      await boot(tester);
+      await search(tester, 'the break-in');
+      await openFirstResult(tester);
+
+      final art = tester.getRect(find.byKey(artKey));
+      expect(art.width, greaterThan(art.height),
+          reason: 'a sideways scheme reserves a wider box than it is tall');
+      expect(art.top, lessThan(80));
+    });
   });
 
   testWidgets('the picker on an unscanned card sits below its text',
