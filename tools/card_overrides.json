@@ -1,0 +1,220 @@
+{
+  "_comment": [
+    "Maps a Tabletop Simulator card object to a marvelsdb card code, for the objects",
+    "the automatic cascade in build_assets.py cannot resolve on its own.",
+    "",
+    "The key is 'Nickname@Bag / Path', with a '#n' ordinal when one bag holds several",
+    "different cards under one name. The key survives a re-scan of the art: a rescanned",
+    "sheet gets a new content-addressed URL, so keying on the sheet cell would orphan",
+    "every entry the moment the art is updated. The cost is that a card renamed upstream",
+    "orphans its entry instead, which the script reports rather than ignores.",
+    "",
+    "A value of null means 'this object is deliberately not a marvelsdb card' -- tokens,",
+    "trackers, reference cards and other table furniture that has art but no card record.",
+    "",
+    "Unresolved objects are written to .cache/unmatched.json with their candidates and a",
+    "path to the cropped image, so a new one can be judged by looking at it."
+  ],
+
+  "overrides": {
+    "Shadow of the Past@Modular Sets / Standard II Modular Set": "24053",
+
+    "Seduced@Modular Sets / Enchantress Modular Set #1": "55015",
+    "Seduced@Modular Sets / Enchantress Modular Set #2": "21179",
+    "Seduced@Enchantress Scenario Pack / Enchantress Encounter Cards": "55015",
+    "Enchantress@Modular Sets / Enchantress Modular Set": "21177",
+
+    "Vulture@Spider-Man (Peter Parker) Hero Pack / Spider-Man's Nemesis Set": "01167",
+
+    "Spider-Man@Basic Aspect Cards / Basic Aspect Allies #1": "13019",
+    "Spider-Man@Basic Aspect Cards / Basic Aspect Allies #2": "27017",
+    "Spider-Man@Basic Aspect Cards / Basic Aspect Allies #3": "27049",
+    "Spider-Man@Basic Aspect Cards / Basic Aspect Allies #4": "31022",
+    "Spider-Man@Justice Aspect Cards / Justice Aspect Allies #1": "04045",
+    "Spider-Man@Justice Aspect Cards / Justice Aspect Allies #2": "30013",
+    "Thor@Aggression Aspect Cards / Aggression Aspect Allies #1": "13011",
+    "Thor@Aggression Aspect Cards / Aggression Aspect Allies #2": "25013",
+    "Hawkeye@Leadership Aspect Cards / Leadership Aspect Allies #1": "01066",
+    "Hawkeye@Leadership Aspect Cards / Leadership Aspect Allies #2": "04011",
+
+    "Hela@Hela Scenario Pack / Hela Villain #1": "21136a",
+    "Hela@Hela Scenario Pack / Hela Villain #2": "21137a",
+
+    "Kang (The Conqueror)@Kang Scenario Pack / Kang Villain #1": "11001",
+    "Kang (The Conqueror)@Kang Scenario Pack / Kang Villain #2": "11006",
+    "Kang (The Conqueror)@Kang Scenario Pack / Kang Expert Villain #1": "11001",
+    "Kang (The Conqueror)@Kang Scenario Pack / Kang Expert Villain #2": "11006",
+
+    "Green Goblin@Mutagen Formula Scenario Pack / Mutagen Formula Villain #1": "02014",
+    "Green Goblin@Mutagen Formula Scenario Pack / Mutagen Formula Villain #2": "02015",
+    "Green Goblin@Mutagen Formula Scenario Pack / Mutagen Formula Villain #3": "02016",
+
+    "Ultron@Ultron Scenario Pack / Ultron Villain #1": "01134",
+    "Ultron@Ultron Scenario Pack / Ultron Villain #2": "01135",
+    "UItron@Ultron Scenario Pack / Ultron Villain": "01136",
+
+    "Spiral@Spiral Scenario Pack / Spiral Villain #1": "39012a",
+    "Spiral@Spiral Scenario Pack / Spiral Villain #2": "39013a",
+    "Spiral@Spiral Scenario Pack / Spiral Villain #3": "39014a",
+
+    "The Hood (I)@The Hood Scenario Pack / The Hood Villain": "24001",
+    "The Hood (II)@The Hood Scenario Pack / The Hood Villain": "24002",
+    "The Hood (III)@The Hood Scenario Pack / The Hood Villain": "24003",
+
+    "Collector@Escape the Museum Scenario Pack / Escape the Museum Villain #1": "16080a",
+    "Collector@Escape the Museum Scenario Pack / Escape the Museum Villain #2": "16081a",
+
+    "Apocalypse@Apocalypse Scenario Pack / Apocalypse Villain Cards #1": "45101a",
+    "Apocalypse@Apocalypse Scenario Pack / Apocalypse Villain Cards #2": "45102a",
+
+    "_apocalypse": [
+      "The En Sabah Nur pack scans all nine Apocalypse cards -- three stages, each with",
+      "three sides -- onto cells 0..8 of one sheet, and then lists them twice. The",
+      "'Villain Cards' bag holds all nine, in reverse cell order, so #1 is cell 8 and #9",
+      "is cell 0. The '(State-Based)' bag holds the same art again as three cards with",
+      "two states each. Only the first bag is mapped; the second is the same nine cells",
+      "and would collide, so its entries are null."
+    ],
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards #1": "45186c",
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards #2": "45186b",
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards #3": "45186a",
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards #4": "45185c",
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards #5": "45185b",
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards #6": "45185a",
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards #7": "45184c",
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards #8": "45184b",
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards #9": "45184a",
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards (State-Based) #1": null,
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards (State-Based) #2": null,
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards (State-Based) #3": null,
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards (State-Based) / Apocalypse / state2 #1": null,
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards (State-Based) / Apocalypse / state2 #2": null,
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards (State-Based) / Apocalypse / state2 #3": null,
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards (State-Based) / Apocalypse / state3 #1": null,
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards (State-Based) / Apocalypse / state3 #2": null,
+    "Apocalypse@En Sabah Nur Scenario Pack / En Sabah Nur Villain Cards (State-Based) / Apocalypse / state3 #3": null,
+
+    "Baron Zemo@Baron Zemo Scenario Pack / Baron Zemo Villain #1": "50165a",
+    "Baron Zemo@Baron Zemo Scenario Pack / Baron Zemo Villain #2": "50166a",
+
+    "Ironheart@Ironheart Hero Pack": "29001a",
+    "Ironheart@Ironheart Hero Pack / Ironheart / state2": "29002a",
+    "Ironheart@Ironheart Hero Pack / Ironheart / state3": "29003a",
+    "_spider_man_hero_bags": [
+      "Two hero bags are named for Spider-Man and each holds one object called",
+      "'Spider-Man'. The unparenthesised bag is Miles Morales, whom Sinister Motives",
+      "printed under that name; the parenthesised one is Peter Parker. Both are pinned,",
+      "because any rule that resolves them by name alone gives them the same code, and",
+      "the loser is not left artless -- it is overwritten, which looks like working art",
+      "of the wrong card."
+    ],
+    "Spider-Man@Spider-Man (Peter Parker) Hero Pack": "01001a",
+    "Spider-Man@Spider-Man Hero Pack": "27030a",
+
+    "_black_panther_hero_bags": [
+      "The same trap as the Spider-Man bags, and it had already sprung. Two bags are",
+      "both named 'Black Panther Hero Pack' -- the Core Set's T'Challa and the 2025",
+      "pack's Shuri -- and each holds one object called 'Black Panther'. Both resolved",
+      "to 01040a, so Shuri's scan overwrote T'Challa's: 01040a was showing Shuri's art",
+      "and 51001a had none at all.",
+      "",
+      "The printed cards say which is which. #1 is 2/2/2 with 'Avenger. Wakanda.',",
+      "(c)2019, numbered 40A; #2 has starred stats and 'Wakanda.', (c)2025, numbered 1A."
+    ],
+    "Black Panther@Black Panther Hero Pack #1": "01040a",
+    "Black Panther@Black Panther Hero Pack #2": "51001a",
+
+    "Taskmaster's Shield@Taskmaster Scenario Pack / Taskmaster Encounter Cards": "04103",
+    "Taskmaster's Sword@Taskmaster Scenario Pack / Taskmaster Encounter Cards": "04102",
+    "Taskmaster's Shield@Civil War Expansion / Registration Modular Sets / Taskmaster Modular Set": "57024",
+    "Taskmaster's Sword@Civil War Expansion / Registration Modular Sets / Taskmaster Modular Set": "57023",
+    "Taskmaster@Civil War Expansion / Registration Modular Sets / Taskmaster Modular Set": "57022",
+
+    "Songbird@Thunderbolts Modular Sets / Hard Sound Modular Set": "50143",
+    "Atlas@Thunderbolts Modular Sets / Growing Strong Modular Set": "52035",
+
+    "Choosing Sides@Civil War Expansion / Resistance Components / Standard PVP (Resistance)": "56128a",
+    "Whatever It Takes@Civil War Expansion / Resistance Components / Standard PVP (Resistance)": "56126",
+    "Righteous Cause@Civil War Expansion / Resistance Components / Standard PVP (Resistance)": "56125",
+    "Choosing Sides@Civil War Expansion / Registration Components / Standard PVP (Registration)": "56206a",
+    "Whatever It Takes@Civil War Expansion / Registration Components / Standard PVP (Registration)": "56204",
+    "Righteous Cause@Civil War Expansion / Registration Components / Standard PVP (Registration)": "56203",
+
+    "Resistance Tactics@Civil War Expansion / Resistance Components / Resistance Tactics #1": "56142a",
+    "Resistance Tactics@Civil War Expansion / Resistance Components / Resistance Tactics #2": "56173a",
+    "Resistance Tactics@Civil War Expansion / Resistance Components / Resistance Tactics #3": "56201a",
+    "Resistance Tactics@Civil War Expansion / Resistance Components / Resistance Tactics #4": "56202a",
+    "Resistance Tactics@Civil War Expansion / Resistance Components / Resistance Tactics #5": null,
+    "Superhero Resistance@Civil War Expansion / Resistance Components / Superhero Resistance #1": "56141a",
+    "Superhero Resistance@Civil War Expansion / Resistance Components / Superhero Resistance #2": "56172a",
+    "Superhero Resistance@Civil War Expansion / Resistance Components / Superhero Resistance #3": "56199a",
+    "Superhero Resistance@Civil War Expansion / Resistance Components / Superhero Resistance #4": "56200a",
+    "Superhero Resistance@Civil War Expansion / Resistance Components / Superhero Resistance #5": null,
+    "Pro-Registration Tactics@Civil War Expansion / Registration Components / Pro-Registration Tactics #1": "56064a",
+    "Pro-Registration Tactics@Civil War Expansion / Registration Components / Pro-Registration Tactics #2": "56097a",
+    "Pro-Registration Tactics@Civil War Expansion / Registration Components / Pro-Registration Tactics #3": "56123a",
+    "Pro-Registration Tactics@Civil War Expansion / Registration Components / Pro-Registration Tactics #4": "56124a",
+    "Pro-Registration Tactics@Civil War Expansion / Registration Components / Pro-Registration Tactics #5": null,
+    "Superhero Registration Act@Civil War Expansion / Registration Components / Superhero Registration Act #1": "56063a",
+    "Superhero Registration Act@Civil War Expansion / Registration Components / Superhero Registration Act #2": "56096a",
+    "Superhero Registration Act@Civil War Expansion / Registration Components / Superhero Registration Act #3": "56121a",
+    "Superhero Registration Act@Civil War Expansion / Registration Components / Superhero Registration Act #4": "56122a",
+    "Superhero Registration Act@Civil War Expansion / Registration Components / Superhero Registration Act #5": null,
+    "Secret Avengers@Civil War Expansion / Resistance Modular Sets / Secret Avengers Modular Set": "56159",
+
+    "Ronin@Daredevil and Echo Patch Bag / New Aspect Cards": "60053",
+
+    "Military Grade@Modular Sets / Military Grade Modular Set #1": "40092",
+    "Military Grade@Modular Sets / Military Grade Modular Set #2": "40093",
+    "Military Grade@Modular Sets / Military Grade Modular Set #3": null,
+
+    "Attack on Xavier's@Mansion Attack Scenario Pack / Mansion Attack Main Scheme #1": "32126a",
+    "Attack on Xavier's@Mansion Attack Scenario Pack / Mansion Attack Main Scheme #2": "32127a",
+    "Attack on Xavier's@Mansion Attack Scenario Pack / Mansion Attack Main Scheme #3": "32128a",
+    "Attack on Xavier's@Mansion Attack Scenario Pack / Mansion Attack Main Scheme #4": "32129a",
+
+    "Sinister Experiment@Mister Sinister Scenario Pack / Mister Sinister Main Scheme #1": "40140a",
+    "Sinister Experiment@Mister Sinister Scenario Pack / Mister Sinister Main Scheme #2": "40141a",
+    "Sinister Experiment@Mister Sinister Scenario Pack / Mister Sinister Main Scheme #3": "40142a",
+
+    "A.I.M. Interference@Campaign and Market Cards / Agents of S.H.I.E.L.D. Campaign Cards / S.H.I.E.L.D. Executive Board #1": "50184a",
+    "A.I.M. Interference@Campaign and Market Cards / Agents of S.H.I.E.L.D. Campaign Cards / S.H.I.E.L.D. Executive Board #2": "50184b",
+    "A.I.M. Interference@Campaign and Market Cards / Agents of S.H.I.E.L.D. Campaign Cards / S.H.I.E.L.D. Executive Board #3": "50184c",
+
+    "Growing Invulnerable@Modular Sets / Growing Strong Modular Set": "52036",
+    "Growing Invulnerable@Thunderbolts Modular Sets / Growing Strong Modular Set": "52036",
+    "Vandarian Power Wand@Modular Sets / Galactic Artifacts Modular Set": "16126",
+    "Wave Bracelets@Campaign and Market Cards / Sinister Motives Campaign Cards / Sinister Motives S.H.I.E.L.D. Tech": "27188a",
+    "Mission Rules@Campaign and Market Cards / Age of Apocalypse Campaign Cards": null,
+
+    "_antman_wasp_forms": [
+      "Ant-Man and Wasp each have two hero forms, tiny and giant, which the save keeps",
+      "as alternate states of the alter-ego object rather than as cards of their own.",
+      "They are real cards with real scans -- one sheet holds all six faces -- so they",
+      "are pinned to their codes. The letter printed in the card's corner tells the two",
+      "forms apart: 1A is tiny, 1C is giant.",
+      "",
+      "Mapping these to null lost four cards' art, and the 'Wasp (Tiny)' object was",
+      "additionally matched to the event 'Wasp Sting', overwriting that card's picture."
+    ],
+    "Ant-Man (Tiny)@Ant-Man Hero Pack / Scott Lang / state2": "12001a",
+    "Ant-Man (Giant)@Ant-Man Hero Pack / Scott Lang / state3": "12001c",
+    "Wasp (Tiny)@Wasp Hero Pack / Nadia Van Dyne / state2": "13001a",
+    "Wasp (Giant)@Wasp Hero Pack / Nadia Van Dyne / state3": "13001c",
+
+    "Protection Tracker@Spider-Woman Hero Pack / Spider-Woman's Aspect Trackers": null,
+    "Leadership Tracker@Spider-Woman Hero Pack / Spider-Woman's Aspect Trackers": null,
+    "Justice Tracker@Spider-Woman Hero Pack / Spider-Woman's Aspect Trackers": null,
+    "Aggression Tracker@Spider-Woman Hero Pack / Spider-Woman's Aspect Trackers": null,
+
+    "Trickster Takeover Reminder Card@God of Lies Scenario Pack": null,
+    "Competitive Reference Card (Resistance)@Civil War Expansion / Resistance Components": null,
+    "Competitive Reference Card (Registration)@Civil War Expansion / Registration Components": null,
+
+    "@Modular Sets / Sauron Modular Set": "46030",
+    "@Sinister Six Scenario Pack / Sinister Six Encounter Cards": "27107",
+    "@Venom Scenario Pack / Venom Encounter Cards #1": "27079",
+    "@Venom Scenario Pack / Venom Encounter Cards #2": "27080",
+    "@Venom Scenario Pack / Venom Encounter Cards #3": "27081"
+  }
+}
