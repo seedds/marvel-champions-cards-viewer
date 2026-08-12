@@ -182,6 +182,7 @@ class TTSCard:
     num_height: int
     index: int
     ordinal: int = 0
+    private_back: bool = False
 
     @property
     def key(self) -> str:
@@ -207,10 +208,17 @@ class TTSCard:
         """The cell holding the other side, when the card has one.
 
         UniqueBack means BackURL is a second sheet laid out like the first, so the back
-        of this card sits at the same index. Otherwise BackURL is a card back shared by
-        the whole deck and carries no card-specific art at all.
+        of this card sits at the same index.
+
+        A false UniqueBack does *not* mean there is no back art. It means so for the
+        eight sheets that are a deck's shared card back, and not at all for the 132
+        1x1 sheets each of which is one card's own scanned back with the flag simply
+        wrong -- The Break-In! 01097b among them. `private_back` tells the two apart;
+        see `_mark_private_backs`.
         """
-        return (self.back_url, self.index) if self.unique_back else None
+        if self.unique_back or self.private_back:
+            return (self.back_url, self.index)
+        return None
 
 
 def walk_save(save: dict) -> list[TTSCard]:
@@ -237,7 +245,41 @@ def walk_save(save: dict) -> list[TTSCard]:
 
     visit(save.get("ObjectStates") or [], ())
     _number_duplicates(found)
+    _mark_private_backs(found)
     return found
+
+
+def _mark_private_backs(cards: list[TTSCard]) -> None:
+    """Find the BackURLs that are one card's own back rather than a deck's card back.
+
+    `UniqueBack` is the flag for this and it is wrong for 132 sheets, which is why every
+    main scheme's second stage and every alter-ego's portrait were missing. Reading it
+    alone leaves them out; ignoring it entirely crops a deck's card back thousands of
+    times over.
+
+    What separates them is arithmetic over the whole save, not anything on one object:
+
+        distinct face cells sharing a BackURL     sheets
+                                            1        132   one card's own back
+                                          3-6          5   a small deck's shared back
+                                    161-1,023          8   the real card backs
+
+    Nothing lands between 6 and 161, so the rule is the low end of that gap: a 1x1 sheet
+    reached by exactly one face cell. Both halves matter -- the four aspect trackers are
+    1x1 and their "back" is their own face sheet again, and the five 2x2 and 3x2 sheets
+    in the 3-6 band are shared backs for a handful of Civil War and Hero for Hire cards.
+    """
+    faces_per_back: dict[str, set[tuple[str, int]]] = defaultdict(set)
+    for card in cards:
+        if not card.unique_back:
+            faces_per_back[card.back_url].add(card.face_cell)
+
+    for card in cards:
+        card.private_back = (
+            not card.unique_back
+            and (card.num_width, card.num_height) == (1, 1)
+            and len(faces_per_back[card.back_url]) == 1
+        )
 
 
 def _number_duplicates(cards: list[TTSCard]) -> None:
@@ -313,7 +355,7 @@ def sheet_grids(cards: list[TTSCard]) -> dict[str, tuple[int, int]]:
     for card in cards:
         grid = (card.num_width, card.num_height)
         record(card.face_url, grid, card)
-        if card.unique_back:
+        if card.back_cell is not None:
             record(card.back_url, grid, card)
 
     return grids
@@ -900,6 +942,7 @@ def plan_crops(
     tts_cards: list[TTSCard],
     codes: dict[str, str],
     grids: dict[str, tuple[int, int]],
+    two_sided: set[str],
 ) -> tuple[list[Crop], dict[str, dict[str, str | bool]]]:
     """Decide which cell becomes which file.
 
@@ -907,6 +950,10 @@ def plan_crops(
     plus whether the card is printed sideways. A card appears in the save once per
     physical copy and often in several bags, so cells are deduplicated here; the same
     cell always holds the same card, which is checked rather than assumed.
+
+    [two_sided] is every code marvelsdb gives a second side, and is what a back scan is
+    checked against: a scan of a back belonging to a card upstream calls one-sided is
+    one of the two halves disagreeing, and the build stops rather than guess which.
     """
     crops: dict[str, Crop] = {}
     images: dict[str, dict[str, str | bool]] = {}
@@ -943,13 +990,49 @@ def plan_crops(
         sides["landscape"] = card.sideways
 
         back = card.back_cell
-        if back is not None:
+        if back is not None and code not in BACK_SCAN_IS_NOT_A_CARD:
             sides["back_image"] = _add_crop(
                 crops, back, grids, f"{code}b.webp", card.sideways
             )
 
+    _check_backs_have_a_side(images, two_sided)
     _check_one_card_per_code(names)
     return (sorted(crops.values(), key=lambda c: c.filename), images)
+
+
+# Scans whose back sheet is not a second face of the card. Both are single cards in the
+# save carrying a back of their own, where marvelsdb gives them no second side at all --
+# 03024 Avengers Tower, a support in the Tower Defense setup, and 42001c Archangel, the
+# oversized alternate hero form. Cropping the back would write a file no record reads.
+#
+# The list is deliberately short and checked: `_check_backs_have_a_side` fails the build
+# on any *other* code whose back is scanned but which upstream calls one-sided, because
+# that is either a new case to look at or a scan matched to the wrong card.
+BACK_SCAN_IS_NOT_A_CARD = {"03024", "42001c"}
+
+
+def _check_backs_have_a_side(
+    images: dict[str, dict[str, str | bool]], two_sided: set[str]
+) -> None:
+    """Fail when a back is cropped for a card marvelsdb says has only one side.
+
+    The two halves of the pipeline disagreeing is the interesting case, not a nuisance:
+    either the save has scanned a side upstream does not know about, or the scan has
+    been matched to the wrong card and its back is about to be written under a code
+    that will never read it. Both want eyes, and neither should ship quietly.
+    """
+    orphans = sorted(
+        code
+        for code, sides in images.items()
+        if "back_image" in sides and code not in two_sided
+    )
+    if orphans:
+        die(
+            f"{len(orphans)} card(s) have a scanned back but no second side in "
+            f"marvelsdb: {', '.join(orphans)}. Either the scan is matched to the wrong "
+            "card, or the back is not a card face -- add it to BACK_SCAN_IS_NOT_A_CARD "
+            "with the reason if you have looked at it and it is the latter."
+        )
 
 
 # Codes that genuinely have two scans, verified by looking at them. Kang's standard and
@@ -1135,9 +1218,18 @@ def build_records(
     packs = {p["code"]: p for p in ref["packs"]}
     set_names = {s["code"]: s["name"] for s in ref["sets"]}
 
-    # back_link points forward, from the front of a two-sided card to its back. The back
-    # needs to look the other way to find the scan that holds its picture.
-    fronts = {c["back_link"]: c["code"] for c in mdb_cards if c.get("back_link")}
+    # The other side of a card, whichever way its back_link runs. A two-sided card is two
+    # records and one scan, so the half that was not scanned takes its picture from the
+    # other half's back image -- and which half that is does not follow from the link's
+    # direction. back_link points front to back, and the save usually scanned the front,
+    # so a back looks forwards along it; but Green Goblin 02001-02003 were scanned from
+    # the Norman Osborn side, which is the *target* of the link, so those three look
+    # backwards along it. Reading one direction only leaves the other three artless.
+    other_side: dict[str, str] = {}
+    for card in mdb_cards:
+        if link := card.get("back_link"):
+            other_side[card["code"]] = link
+            other_side[link] = card["code"]
 
     records = []
     for card in mdb_cards:
@@ -1160,17 +1252,17 @@ def build_records(
         record.update(images.get(card["code"], {}))
 
         # A two-sided card is two records upstream, and one scan here: the object that
-        # carries its own back holds both faces. So the back half of a linked pair takes
-        # its picture from the front half's back image, rather than having none. This is
+        # carries its own back holds both faces. So the half that was not scanned takes
+        # its picture from the other half's back image, rather than having none. This is
         # what gives every alter-ego its portrait, the hero having been scanned with it.
         if "front_image" not in record:
-            front = fronts.get(card["code"])
-            if back := images.get(front, {}).get("back_image"):
+            scanned = other_side.get(card["code"])
+            if back := images.get(scanned, {}).get("back_image"):
                 record["front_image"] = back
                 # Both faces of one physical card share its orientation.
-                record["landscape"] = images[front]["landscape"]
+                record["landscape"] = images[scanned]["landscape"]
 
-        # The 202 cards with no scan have no orientation to read, so type stands in.
+        # The 58 cards with no scan have no orientation to read, so type stands in.
         # It is a good rule and not a perfect one -- a handful of scanned attachments and
         # allies are printed sideways against type -- but for a card with no picture,
         # orientation only decides the shape of a placeholder.
@@ -1631,7 +1723,12 @@ def main() -> int:
     if result.unmatched:
         write_unmatched(result)
 
-    crops, images = plan_crops(tts_cards, result.resolved, grids)
+    # Both directions, and the one card that carries both faces on a single record.
+    two_sided = {c["code"] for c in mdb_cards if c.get("double_sided")}
+    two_sided |= {c["back_link"] for c in mdb_cards if c.get("back_link")}
+    two_sided |= {c["code"] for c in mdb_cards if c.get("back_link")}
+
+    crops, images = plan_crops(tts_cards, result.resolved, grids, two_sided)
 
     if args.dry_run:
         needed = [u for u in {c.url for c in crops} if not sheet_path(u).exists()]

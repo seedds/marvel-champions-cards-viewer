@@ -55,7 +55,7 @@ is gitignored, so **a fresh clone has card data and no art until the script has 
 
 Replace `2665262903.json`, pull `marvelsdb-json-data`, run the script. That is all.
 
-Steam's sheet URLs are content-addressed hashes — 567 sheets, 567 distinct hashes — so
+Steam's sheet URLs are content-addressed hashes — 695 sheets, 695 distinct hashes — so
 a sheet whose contents change arrives as a *new URL* and one that has not changed is
 already in `.cache/sheets/`. An update after a new hero pack fetches a handful of sheets
 rather than the four gigabytes the first run costs. A marvelsdb-only update fetches
@@ -67,26 +67,33 @@ The script prints a diff against the previous run:
 summary
   marvelsdb   dc62016 -> a1b3f90
   TTS save    8/3/2026 -> 11/2/2026
-  sheets      567 -> 575
-  crops       3758 -> 3819
+  sheets      695 -> 703
+  crops       3902 -> 3963
   cards       3956 -> 4014
 ```
 
 Measured costs. The first run fetched 9.2 GB of sheets over about four hours and cropped
-3,758 images in ten minutes. A re-run with nothing changed takes **0.4 seconds** and
+3,902 images in ten minutes. A re-run with nothing changed takes **0.4 seconds** and
 rewrites nothing.
 
 ## Coverage
 
-3,774 of 3,956 cards have art. Of the 182 without:
+3,898 of 3,956 cards have art. Of the 58 without:
 
-- **146** are another side or printing of a card that does have art — an alternate
-  artwork, or the back of a two-sided card the community scanned front-only.
-- **36** have no scan anywhere under their code. Magneto's Mutant Genesis attachments
-  and the Expert Kang villains are the largest groups.
+- **44** are another side or printing of a card that does have art — an alternate
+  artwork, or a printing the community scanned once.
+- **14** have no scan anywhere under their code: the five Hercules All Versus All cards,
+  the four Ronan Kree Fanatic cards, and five singletons.
 
 This is the ceiling of the TTS save, not a bug in the pipeline. Both numbers should fall
 when the scans are next updated.
+
+It was 182 until the save's `UniqueBack` flag turned out to be false on 132 sheets that
+are a single card's own scanned back — see the facts table. That was every main scheme's
+second stage and **every alter-ego's portrait**: 124 cards whose art had been fetched,
+cropped and then discarded on the strength of one boolean. The Break-In! `01097b` was
+the card that showed it, because a scheme you cannot turn over is obvious in a way that
+an alter-ego with a portrait somewhere else in the list is not.
 
 Shuri's Black Panther `51001a` was in that second list until it turned out not to be a
 gap at all: both Black Panther hero packs hold an object called `Black Panther`, both
@@ -143,7 +150,8 @@ ignoring them.
 | Claim | Reality |
 | --- | --- |
 | `CardID // 100` gives the sheet | It does not, for 473 of 4,838 objects. Read the key from the object's `CustomDeck`, which is what TTS uses. |
-| A card's `BackURL` is its back | Only when `UniqueBack` is true (211 objects), where it is a second sheet with the same grid and index. Otherwise it is one card back shared by a whole deck, and cropping it yields thousands of identical files. |
+| A card's `BackURL` is its back | When `UniqueBack` is true (211 objects) it is a second sheet with the same grid and index. Otherwise it is *usually* one card back shared by a whole deck, and cropping it yields thousands of identical files. |
+| So a false `UniqueBack` means there is no back art | It does not, for 132 sheets, and reading the flag alone cost 124 cards their picture — every main scheme's second stage and every alter-ego's portrait. Group the non-unique `BackURL`s by how many distinct face cells share each: 132 sheets have **one**, five have 3–6, eight have 161–1,023, and nothing lands in between. The 132 are each a single card's own back with the flag simply wrong. The rule is that gap's low end — a 1×1 sheet reached by exactly one face cell — and both halves are load-bearing: the four aspect trackers are 1×1 whose "back" is their own face sheet again, and the 3–6 band is genuinely shared backs. |
 | Several objects with one name are several cards | Usually they are copies of one card. They are told apart by sheet cell, not by count: three copies point at one cell, a villain's three stages at three. |
 | Two bags named for one hero hold one hero | `Spider-Man Hero Pack` is Miles Morales, whom Sinister Motives printed as plain "Spider-Man"; `Spider-Man (Peter Parker) Hero Pack` is Peter. Both objects are called `Spider-Man`, so nothing but the bag tells them apart. |
 | A card the save keeps as a state is not a card | Ant-Man and Wasp each have a tiny and a giant hero form, held as alternate states of the alter-ego object rather than as cards. All four are real cards with real scans, on the same sheet as their alter-egos. The letter in the corner names the form: `1A` tiny, `1C` giant. |
@@ -154,8 +162,9 @@ ignoring them.
 | A `GET` that returns 200 returned the whole file | Five of 567 sheets arrived truncated on the first run, and a truncated PNG caches as good and fails hours later in the cropping stage. The fetch compares the bytes written against `Content-Length`. |
 | A two-minute timeout is generous | The largest sheet is 60 MB and took 177 seconds. The timeout is 300. |
 | `back_link` points at a card's front | It points *forward*, from the front to the back. A back looks itself up by finding the record that links **to** it. Getting this backwards leaves every alter-ego without a portrait — 188 cards. |
+| So the unscanned half of a card is always the link's target | Usually, because the save scanned the front. Not for Green Goblin `02001`–`02003`, which were scanned from the Norman Osborn side — the link's *target* — so those three find their picture by looking backwards along it. `build_records` walks the link both ways for this. |
 | A sideways card is stored sideways | It is stored upright, so that every cell of a sheet is one shape, and TTS turns it when dealing. `SidewaysCard` marks these and the crop rotates them; without it every scheme comes out on its side. |
-| `type_code` tells the app which cards are landscape | Nearly. Four attachments, an ally, a support, an obligation and a hero are printed sideways against type, and one side scheme is upright. The save's flag is the only source, so it is carried to `cards.json` as `landscape` rather than re-derived in a widget. For the 202 cards with no scan there is nothing to read, and type stands in. |
+| `type_code` tells the app which cards are landscape | Nearly. Four attachments, an ally, a support, an obligation and a hero are printed sideways against type, and one side scheme is upright. The save's flag is the only source, so it is carried to `cards.json` as `landscape` rather than re-derived in a widget. For the 58 cards with no scan there is nothing to read, and type stands in. |
 | `landscape` and the image's own shape can disagree | Once, for `42001c` Archangel, which is a genuinely oversized 1430×1030 card alone on a 1×1 sheet — not a rotation. Every other card matches its pixels. |
 | A lettered code run is a card's sides | Only when `back_link` says so. `11007a`/`11007b` are one card's two sides and collapse to the front. `01043a`–`01043d`, Wakanda Forever!, links to nothing and is **four different cards** a deck holds at once, differing by resource pip. Collapsing a run was worth 30 scans and every one of them was this; see the row below. |
 | A run with one name, one type and no links is one card in several artworks | It never once was. Six runs reach the matcher — Wakanda Forever!, Jubilee's Firecracker, Flash of Light and Plasmoid Energy, Echo's Photographic Reflexes, Ultron's Android Efficiency — and all six are distinct cards separated by pips or by text. Collapsing them pointed every member at one filename, so the last crop won and the other 14 cards wore its art. `01043a` showed Shuri's `51005`. |
@@ -246,10 +255,11 @@ decode size was ever set — green, and proving nothing.
 
 **A scan is the card, and its absence is not a hole.** Everything the heading, stats and
 text would say is already printed on the picture, so a scanned side shows the picture
-alone. The 57 fronts and 125 backs with no scan show that text *in the picture's place*,
+alone. The 53 fronts and 5 backs with no scan show that text *in the picture's place*,
 with nothing above it: a box saying "not scanned" is a card's height of dead space above
-the only information there is. The choice is per side, so The Break-In! shows art one way
-and text the other.
+the only information there is. The choice stays per side even though the five remaining
+two-sided gaps have neither side scanned, because that is the state of one TTS save and
+not a rule.
 
 **A row is two lines and 48.6pt.** The thumbnail is 28pt wide and sets the height; the
 name and the type-and-traits line fit inside it. `CardRow.extent` is that arithmetic,
@@ -300,7 +310,7 @@ tools/
 assets/
   cards.json                 committed
   decks.json                 committed
-  CardImages/*.webp          gitignored, ~750 MB, rebuilt by the script
+  CardImages/*.webp          gitignored, ~780 MB, rebuilt by the script
 lib/                         the app: data/ then ui/
 test/                        data and text rules, and the screens, against the real
                              cards.json and the real art. Headless.

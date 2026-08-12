@@ -202,7 +202,7 @@ void main() {
     test('a back with no art anywhere returns null', () {
       final blank = repo.browsable
           .where((c) => c.backLink != null && repo.backImageOf(c) == null);
-      expect(blank, isNotEmpty, reason: '125 backs have no scan');
+      expect(blank, isNotEmpty, reason: '5 backs have no scan');
     });
   });
 
@@ -237,8 +237,13 @@ void main() {
       // Forever! printings and Shuri's, the Jubilee and Echo pip runs, and Ultron's
       // three Android Efficiency -- because every member of a run wrote one filename
       // and the last crop won.
-      expect(all.where((c) => c.hasArt), hasLength(3774));
-      expect(all.where((c) => !c.hasArt), hasLength(182));
+      //
+      // 3,774 until the build stopped trusting the save's UniqueBack flag, which is
+      // false on 132 sheets that are a single card's own scanned back. That was every
+      // main scheme's second stage and every alter-ego's portrait: 124 cards, and the
+      // reason The Break-In! could not be turned over.
+      expect(all.where((c) => c.hasArt), hasLength(3898));
+      expect(all.where((c) => !c.hasArt), hasLength(58));
     });
 
     // The build script reads orientation from the TTS save, where it is the only

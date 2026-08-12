@@ -94,7 +94,7 @@ class CardRepository {
 
   /// The image to show for the back of [card], which is not always the back record's
   /// own front image: for a scan that carried both faces it is the front's back image.
-  /// 125 backs have no art at all and return null.
+  /// 5 backs have no art at all and return null.
   String? backImageOf(MarvelCard card) {
     if (card.backImage != null) return card.backImage;
     return backOf(card)?.frontImage;
