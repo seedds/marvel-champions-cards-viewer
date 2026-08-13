@@ -10,6 +10,7 @@ class Deck {
     required this.id,
     required this.name,
     required this.hero,
+    required this.aspects,
     required this.slots,
     required this.setAside,
   });
@@ -22,9 +23,14 @@ class Deck {
   /// for: `Black Panther` and `Black Panther (Shuri)` are two different decks.
   final String name;
 
-  /// The code of the hero or alter-ego card this is the deck of. Never in [slots]: the
-  /// save keeps a pack's identity card beside the deck, not inside it.
+  /// The code of the hero or alter-ego card this is the deck of. Never in [slots]: a
+  /// deck's identity is not one of the 40 cards it plays.
   final String hero;
+
+  /// The aspects the deck is built from, as faction codes. Usually one, and never
+  /// empty. Seven decks are legitimately multi-aspect -- Adam Warlock draws on all
+  /// four -- which is why this is a list.
+  final List<String> aspects;
 
   /// How many copies of each card code the deck holds.
   final Map<String, int> slots;
@@ -35,8 +41,9 @@ class Deck {
   /// apart from it. Never empty -- every hero has at least an obligation.
   final Map<String, int> setAside;
 
-  /// The number of physical cards in the deck. [setAside] is not among them: those
-  /// cards ship in the pack but do not go into the deck.
+  /// The number of physical cards in the deck, which is 40 for every deck in the game.
+  /// [setAside] is not among them: those cards ship in the pack but do not go into the
+  /// deck.
   int get cardCount => slots.values.fold(0, (sum, count) => sum + count);
 
   factory Deck.fromJson(Map<String, dynamic> json) {
@@ -44,6 +51,7 @@ class Deck {
       id: json['id'] as String,
       name: json['name'] as String,
       hero: json['hero'] as String,
+      aspects: (json['aspects'] as List<dynamic>).cast<String>(),
       slots: (json['slots'] as Map<String, dynamic>).cast<String, int>(),
       setAside: (json['set_aside'] as Map<String, dynamic>).cast<String, int>(),
     );

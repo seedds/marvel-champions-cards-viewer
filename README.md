@@ -4,7 +4,7 @@ An offline card reference for *Marvel Champions: The Card Game*. Every card and 
 scan ships inside the app — it never reaches the network to show you a card.
 
 Three tabs: a browser over all 3,632 cards with search and filters, the 67 hero packs —
-each the 15-card deck and the cards set aside beside it — and a theme setting. A card's
+each the 40-card pre-built deck and the cards set aside beside it — and a theme setting. A card's
 detail screen swipes to its neighbours,
 flips a two-sided card, and picks between the printings of a card printed more than
 once.

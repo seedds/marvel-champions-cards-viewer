@@ -1390,201 +1390,262 @@ def link_editions(records: list[dict]) -> int:
     return found
 
 
-def build_decks(
-    tts_cards: list[TTSCard], codes: dict[str, str], records: list[dict]
-) -> list[dict]:
-    """A hero's own cards: the 15-card deck in the pack, and what is set aside beside it.
+DECK_SIZE = 40
 
-    The save has already done the grouping: a hero pack bag holds a hero deck and a
-    nemesis set, each a deck object with one entry per physical copy.
+# The aspects a deck can be built from. Seven precons are legitimately multi-aspect --
+# Adam Warlock draws on all four -- so a deck records the aspects it holds, not one.
+ASPECT_CODES = ("aggression", "justice", "leadership", "protection", "pool")
 
-    Four things about the save make a naive reading wrong, and each is settled here
-    rather than in the app -- see the notes on the fixes below.
 
-    The deck is not all of a hero's cards, and the rest come from marvelsdb rather than
-    the save -- see `_set_aside`.
+def build_decks(records: list[dict], overrides: dict) -> list[dict]:
+    """Each hero pack's pre-built deck: the 40 cards it plays, and what sits beside it.
+
+    Read from marvelsdb, and not from the Tabletop Simulator save. **The save has no
+    deck lists.** Its `X's Hero Deck` bag holds 15 objects for 65 of the 66 packs -- the
+    hero's signature cards alone -- while the aspect and basic cards that complete a
+    precon sit in shared `Justice Aspect Cards` and `Basic Aspect Cards` bags with
+    nothing tying them to a hero. Reading that bag gave every deck 15 of its 40 cards.
+
+    marvelsdb carries the deck implicitly, as printed order: a hero pack file lists the
+    identity, then its signature cards, then the aspect and basic ones, and the
+    encounter set is lifted out into a separate `*_encounter.json`. So the run of
+    consecutive collector numbers from one identity to the next is that identity's
+    precon, and the gap where the encounter set was ends the last run.
+
+    Checked two ways. 51 of the 67 runs come to exactly 40 cards, which is the legal
+    deck size and not a number a wrong rule hits 51 times; and Cable's run matches
+    marvelcdb's published precon code for code and quantity for quantity. The other 16
+    are in `tools/precon_overrides.json` -- a run that is neither 40 cards nor
+    overridden fails the build.
     """
     by_code = {r["code"]: r for r in records}
-    # back_link points forward, front to back. A deck listing a back side is listing a
-    # card that is not browsed in its own right, so it is folded onto its front.
-    fronts = {r["back_link"]: r["code"] for r in records if r.get("back_link")}
-
-    decks: dict[tuple[str, ...], Counter] = defaultdict(Counter)
-    for card in tts_cards:
-        if len(card.path) < 2:
-            continue
-        bag = card.path[-1].lower()
-        if "hero deck" not in bag and "hero set" not in bag:
-            continue
-        code = codes.get(card.key)
-        if code:
-            # 01040b T'Challa is the back of 01040a Black Panther, and the only such
-            # slot; without this the deck screen would hold a card the browse list
-            # deliberately does not show.
-            decks[card.path][fronts.get(code, code)] += 1
-
-    heroes = _deck_heroes(tts_cards, codes, by_code, fronts)
-
-    # The same pack can appear at two paths. Daredevil and Echo sit both loose and
-    # inside a "Daredevil and Echo Patch Bag", which counted every copy twice and made
-    # both decks read as 30 cards. Identical listings collapse; listings that actually
-    # differ are two different decks and are kept apart below.
-    by_pack: dict[str, list[tuple[tuple[str, ...], Counter]]] = defaultdict(list)
-    for path, slots in sorted(decks.items()):
-        by_pack[path[-2]].append((path, slots))
-
     built = []
-    for pack, listings in sorted(by_pack.items()):
-        distinct: list[tuple[tuple[str, ...], Counter]] = []
-        for path, slots in listings:
-            if not any(slots == seen for _, seen in distinct):
-                distinct.append((path, slots))
 
-        for path, slots in distinct:
-            candidates = list(
-                dict.fromkeys(heroes.get(path[:-1], []) + heroes.get(path, []))
+    for _pack_code, pack in sorted(_pack_files().items()):
+        for identity, run in _identity_runs(pack, by_code):
+            deck = _read_run(
+                identity, run, records, by_code, overrides.get(identity["code"])
             )
-            if not candidates:
-                die(
-                    f"the deck at {' / '.join(path)} has no hero or alter-ego card in "
-                    "its pack bag; build_decks cannot say whose deck it is"
-                )
-            hero = _choose_hero(candidates, slots, by_code)
-
-            # Two decks can share a pack name: the Core Set's Black Panther deck and
-            # Shuri's rebuild are both "Black Panther Hero Pack". A set is named for
-            # the identity it was printed for -- "Black Panther" and "Black Panther
-            # (Shuri)" -- so it separates them where the pack name does not.
-            name = by_code[hero].get("set_name") or pack
-            deck_id = f"pack:{fold_name(name)}"
-
-            built.append(
-                {
-                    "id": deck_id,
-                    "name": name,
-                    "hero": hero,
-                    "slots": dict(sorted(slots.items())),
-                    "set_aside": _set_aside(hero, slots, records, by_code, fronts),
-                }
-            )
+            if deck is not None:
+                built.append(deck)
 
     ids = Counter(deck["id"] for deck in built)
     if duplicates := [i for i, n in ids.items() if n > 1]:
         die(f"two decks share an id, which the app uses as a key: {duplicates}")
+
+    if stale := sorted(set(overrides) - {d["hero"] for d in built}):
+        die(
+            f"tools/precon_overrides.json has {len(stale)} entr(y/ies) for identity "
+            f"code(s) no deck was built for: {stale}. A code that moved upstream orphans "
+            "its entry; fix or drop it rather than leaving it to do nothing."
+        )
     return sorted(built, key=lambda d: by_code[d["hero"]]["sort_key"])
 
 
-def _set_aside(
-    hero: str,
-    slots: Counter,
+def _pack_files() -> dict[str, list[dict]]:
+    """The player-card pack files, by pack code, each sorted into printed order.
+
+    `*_encounter.json` is deliberately not read: the encounter set is what the gap in a
+    pack's collector numbers is, and that gap is what ends a hero's run.
+    """
+    packs = {}
+    for path in sorted((JSON_DATA / "pack").glob("*.json")):
+        if path.stem.endswith("_encounter"):
+            continue
+        cards = json.loads(path.read_text(encoding="utf-8"))
+        packs[path.stem] = sorted(cards, key=lambda c: (c["position"], c["code"]))
+    return packs
+
+
+def _identity_runs(
+    pack: list[dict], by_code: dict[str, dict]
+) -> list[tuple[dict, list[dict]]]:
+    """Split a pack file into one run of consecutive positions per identity.
+
+    A run starts at an identity and ends at the next identity or at the first gap in the
+    collector numbers, whichever comes first. Two things make this less obvious than it
+    sounds. An identity occupies one position with several codes -- a hero, its
+    alter-ego, and sometimes a second hero form like Archangel -- so the *set* is what
+    says whether a position is a new identity or another face of the current one. And
+    Ironheart prints three identities at three consecutive positions in one set, which
+    is why a run is keyed on the set rather than started at every hero card.
+    """
+    owners: dict[int, str | None] = {}
+    for card in pack:
+        record = by_code.get(card["code"])
+        if record and record.get("type_code") in ("hero", "alter_ego"):
+            owners.setdefault(card["position"], record.get("set_code"))
+
+    starts: list[tuple[int, str | None]] = []
+    for position in sorted(owners):
+        if not starts or owners[position] != starts[-1][1]:
+            starts.append((position, owners[position]))
+
+    runs = []
+    for index, (start, set_code) in enumerate(starts):
+        end = starts[index + 1][0] if index + 1 < len(starts) else None
+        run, previous = [], None
+        for card in pack:
+            if card["position"] < start or (end is not None and card["position"] >= end):
+                continue
+            # The gap where the encounter set was lifted out ends the run.
+            if previous is not None and card["position"] - previous > 1:
+                break
+            previous = card["position"]
+            run.append(card)
+
+        identity = next(
+            (
+                by_code[c["code"]]
+                for c in run
+                if by_code.get(c["code"], {}).get("type_code") == "hero"
+            ),
+            None,
+        )
+        if identity is not None and set_code is not None:
+            runs.append((identity, run))
+    return runs
+
+
+def _in_core_pool(record: dict) -> bool:
+    """Whether a card is in the Core Set's shared aspect-and-basic pool at 50-93."""
+    return record.get("pack_code") == "core" and 50 <= record.get("position", 0) <= 93
+
+
+def _core_pool(aspect: str, records: list[dict]) -> dict[str, int]:
+    """The 25 aspect and basic cards a Core Set precon adds to its 15 signature ones.
+
+    Core is the one pack whose run cannot give a deck. It prints a *single* aspect pool
+    for all five of its heroes -- 01050-01082 by aspect, then eleven basic cards -- so a
+    hero's run stops at its signature cards and nothing in the data says which of the
+    pool it takes, or how many.
+
+    The box's own rule fills it: one copy of each unique card in the aspect, two of each
+    non-unique, and one of each basic. That is 14 + 11, which takes all five decks to
+    exactly 40, and it reproduces marvelcdb's published Spider-Man, She-Hulk and Black
+    Panther precons card for card. The quantity is *not* the printed one -- Core holds
+    three For Justice! and the precon plays two -- which is why this is a rule of its
+    own rather than a run.
+    """
+    if aspect not in ASPECT_CODES:
+        die(f"{aspect!r} is not an aspect; tools/precon_overrides.json names it as one")
+
+    pool = {}
+    for record in records:
+        if not _in_core_pool(record):
+            continue
+        if record.get("faction_code") == aspect:
+            pool[record["code"]] = 1 if record.get("is_unique") else 2
+        elif record.get("faction_code") == "basic":
+            pool[record["code"]] = 1
+    return pool
+
+
+def _read_run(
+    identity: dict,
+    run: list[dict],
     records: list[dict],
     by_code: dict[str, dict],
-    fronts: dict[str, str],
-) -> dict[str, int]:
-    """The cards in a hero's set that the 15-card deck does not hold.
+    override: dict | None,
+) -> dict | None:
+    """One identity's run of cards, split into the deck and what is set aside.
 
-    The obligation, which starts in the encounter deck; permanents like Wolverine's
-    Claws, which start in play; and alternate hero forms like Archangel. Every hero has
-    at least an obligation, so a deck alone is never the whole of what a pack gives you.
+    A card in the run is set aside when it is not shuffled into the deck: a permanent
+    like Wolverine's Claws, which starts in play, or a card printed into a set of its
+    own beside the hero's, which is Daredevil's five senses and Hercules' labors and
+    gifts. Counting those in would say a 40-card deck is 45.
 
-    These come from marvelsdb's set membership rather than from the save, because the
-    save puts them in three different places and no single rule finds them all: loose in
-    the pack bag beside the identity (Touched, Intangible), as a *state* of another card
-    (Spectrum's Photon and Pulsar are states of Gamma), or in a bag of their own
-    (Psylocke's Setup Cards). Set membership is one rule and covers all three.
+    The obligation is set aside too and is *not* in the run -- it starts in the encounter
+    deck, so marvelsdb prints it in the pack's `*_encounter.json`. That is why set-aside
+    is completed from set membership rather than read from the run alone.
     """
-    hero_set = by_code[hero].get("set_code")
+    set_code = identity.get("set_code")
+    slots: dict[str, int] = {}
+    set_aside: dict[str, int] = {}
+    excluded = set((override or {}).get("exclude", ()))
 
-    return {
-        card["code"]: card.get("quantity") or 1
-        for card in sorted(records, key=lambda r: r["code"])
-        # A back side is not browsed in its own right, and its front is already here.
-        if card.get("set_code") == hero_set
-        and card["code"] not in fronts
-        and card["code"] not in slots
-        and card["code"] != hero
-    }
-
-
-def _deck_heroes(
-    tts_cards: list[TTSCard],
-    codes: dict[str, str],
-    by_code: dict[str, dict],
-    fronts: dict[str, str],
-) -> dict[tuple[str, ...], list[str]]:
-    """The hero or alter-ego card sitting beside each hero deck, by pack bag path.
-
-    No deck contains its own identity: the save keeps it loose in the pack bag next to
-    the deck, so a deck read on its own has nothing to show for itself.
-
-    Two things stop this being "the loose card in the bag". Ten packs hold a second
-    loose card beside the identity -- Vision's Intangible, Rogue's Touched, Wolverine's
-    Claws -- so the type has to be checked rather than the count. And SP//dr's identity
-    is one level down, in an "SP//dr's Identity Cards" deck, so a bag with nothing
-    loose is searched one level deeper.
-    """
-    found: dict[tuple[str, ...], list[str]] = defaultdict(list)
-
-    for card in tts_cards:
-        code = codes.get(card.key)
-        if not code or by_code.get(code, {}).get("type_code") not in (
-            "hero",
-            "alter_ego",
-        ):
+    for card in run:
+        # A reprint carries `duplicate_of`, a pack and a position, and no other field of
+        # its own -- `build_records` drops all 342 of them. The card it points at is the
+        # one to read, and it is also the code to record: a deck holding the pack's own
+        # printing of Energy is holding Energy, and the app has no record of the reprint
+        # to show. Following the pointer is what makes 19 of these decks agree with
+        # marvelcdb card for card.
+        code = card.get("duplicate_of") or card["code"]
+        record = by_code.get(code)
+        if record is None or record.get("type_code") in ("hero", "alter_ego"):
             continue
-        # A hero and their alter-ego are two sides of one card, so both scans name the
-        # same identity. Folded onto the front, they stop looking like two candidates
-        # tied with each other.
-        code = fronts.get(code, code)
-        # Loose in the bag, or one level inside it -- which is where SP//dr's identity
-        # lives. Deeper than that is a nemesis or aspect bag, whose heroes are somebody
-        # else's. The candidates are narrowed per deck by _choose_hero.
-        for bag in (card.path, card.path[:-1] if len(card.path) > 1 else None):
-            if bag is not None and code not in found[bag]:
-                found[bag].append(code)
-    return found
 
+        # The printed quantity is how many are in the box, which is not always how many
+        # one deck may hold. Seven packs print two copies of a card whose own deck limit
+        # is 1 -- Two Against the World, Unlikely Duo, Super-Soldiers -- because the
+        # second copy is for the *other player* in a two-handed game. Counting both put
+        # each of those decks at 41, and Winter Soldier, which has two such cards, at 42.
+        quantity = min(card["quantity"], record.get("deck_limit") or card["quantity"])
+        quantity = (override or {}).get("slots", {}).get(code, quantity)
+        if code in excluded or not quantity:
+            continue
 
-def _choose_hero(candidates: list[str], slots: Counter, by_code: dict[str, dict]) -> str:
-    """Which of a bag's identity cards belongs to this deck.
-
-    A bag can offer several. Both Black Panther hero packs are called "Black Panther
-    Hero Pack" -- one Core Set, one Shuri's rebuild -- so the save gives no path that
-    tells them apart and their contents pool under one key. Looking one level into a
-    bag adds more: a hero deck legitimately holds *other* heroes as allies, so Echo's
-    bag offers Daredevil.
-
-    The deck's own cards settle it. A pre-built deck is mostly the set it was printed
-    in, so the identity whose set the deck draws most from is the identity whose deck
-    it is. Ties and misses fail the build rather than guessing.
-    """
-    sets = Counter(by_code[code].get("set_name") for code in slots if code in by_code)
-
-    # Most sets number their identity first, so where two identities come from one set
-    # -- SP//dr's suit and Peni Parker are two cards, not two sides of one -- the lower
-    # position is the one the set is named for.
-    ranked = sorted(
-        (
-            (
-                -sets.get(by_code[code].get("set_name"), 0),
-                by_code[code].get("position", 0),
-                code,
-            )
-            for code in candidates
+        aside = record.get("permanent") or (
+            record.get("set_code") and record["set_code"] != set_code
         )
+        target = set_aside if aside else slots
+        target[code] = target.get(code, 0) + quantity
+
+    if aspect := (override or {}).get("aspect"):
+        # The pool belongs to no one hero, so it is not part of anyone's run -- but
+        # T'Challa is the last identity in Core and his run would otherwise spill into
+        # it. Dropping it here rather than at the run keeps that fact in one place.
+        slots = {c: n for c, n in slots.items() if not _in_core_pool(by_code[c])}
+        slots.update(_core_pool(aspect, records))
+
+    for code, quantity in (override or {}).get("set_aside", {}).items():
+        set_aside[code] = quantity
+        slots.pop(code, None)
+
+    # back_link points forward, front to back, so a back side is a card the browse list
+    # does not show in its own right and its front is already here. SP//dr is the pack
+    # that needs this said of the run as well as of the set: its suit's *back* is a
+    # permanent support, so the run offers it as a set-aside card in its own right.
+    backs = {r["back_link"] for r in records if r.get("back_link")}
+    for code in [c for c in set_aside if c in backs]:
+        del set_aside[code]
+
+    for record in records:
+        if (
+            record.get("set_code") == set_code
+            and record["code"] not in slots
+            and record["code"] not in set_aside
+            and record["code"] not in backs
+            and record["code"] != identity["code"]
+        ):
+            set_aside[record["code"]] = record.get("quantity") or 1
+
+    total = sum(slots.values())
+    if total != DECK_SIZE:
+        die(
+            f"the deck for {identity['name']} ({identity['code']}, set "
+            f"{set_code}) reads as {total} cards, not {DECK_SIZE}. Its collector-number "
+            "run is not the deck as printed; add an entry keyed on the identity code to "
+            "tools/precon_overrides.json saying what the box actually holds."
+        )
+
+    aspects = sorted(
+        {
+            faction
+            for code in slots
+            if (faction := by_code[code].get("faction_code")) in ASPECT_CODES
+        }
     )
-    matched, _, code = ranked[0]
-    if matched == 0:
-        die(
-            f"none of the identity cards {candidates} shares a set with the deck's own "
-            f"cards ({dict(sets)}); cannot say whose deck this is"
-        )
-    if len(ranked) > 1 and ranked[1][:2] == ranked[0][:2]:
-        die(
-            f"identity cards {candidates} are equally plausible for a deck of "
-            f"{dict(sets)}; cannot say whose deck this is"
-        )
-    return code
+    name = identity.get("set_name") or identity["name"]
+    return {
+        "id": f"pack:{fold_name(name)}",
+        "name": name,
+        "hero": identity["code"],
+        "aspects": aspects,
+        "slots": dict(sorted(slots.items())),
+        "set_aside": dict(sorted(set_aside.items())),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1737,6 +1798,19 @@ def load_overrides() -> dict[str, str | None]:
     return {k: v for k, v in entries.items() if not k.startswith("_")}
 
 
+def load_precon_overrides() -> dict[str, dict]:
+    """The decks whose printed contents their collector-number run cannot give.
+
+    Keyed on the identity's code, which is stable where a set name is not. See the
+    file's own comment for what each entry is for.
+    """
+    path = Path(__file__).with_name("precon_overrides.json")
+    if not path.exists():
+        return {}
+    entries = json.loads(path.read_text(encoding="utf-8")).get("decks", {})
+    return {k: v for k, v in entries.items() if not k.startswith("_")}
+
+
 def main() -> int:
     args = parse_args()
 
@@ -1825,7 +1899,7 @@ def main() -> int:
         json.dumps(records, separators=(",", ":"), ensure_ascii=False), encoding="utf-8"
     )
 
-    decks = build_decks(tts_cards, result.resolved, records)
+    decks = build_decks(records, load_precon_overrides())
     (ASSETS / "decks.json").write_text(
         json.dumps(decks, indent=1, sort_keys=True, ensure_ascii=False), encoding="utf-8"
     )

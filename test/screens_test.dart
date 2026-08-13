@@ -551,7 +551,16 @@ void main() {
       await boot(tester);
       await openTab(tester, 'Decks');
 
-      expect(find.text('15 cards'), findsAny, reason: 'a deck says how big it is');
+      expect(
+        find.textContaining('40 cards'),
+        findsAny,
+        reason: 'a deck says how big it is',
+      );
+      expect(
+        find.textContaining('Justice'),
+        findsAny,
+        reason: 'a deck says what aspect it is built from',
+      );
       // Both Black Panther packs are listed, and told apart.
       await tester.scrollUntilVisible(find.text('Black Panther (Shuri)'), 200);
       expect(find.text('Black Panther (Shuri)'), findsOneWidget);
@@ -582,14 +591,14 @@ void main() {
       await openTab(tester, 'Decks');
 
       // Eviction Notice is Spider-Man's obligation. It goes into the encounter deck
-      // rather than the player's, so it is not one of the fifteen -- and it was missing
+      // rather than the player's, so it is not one of the forty -- and it was missing
       // from the screen entirely, as every hero's obligation was.
       await tester.tap(find.text('Spider-Man').first);
       await tester.pumpAndSettle();
 
-      // A deck is 15 rows before the heading, so it starts below the fold. The deck's
-      // own list is the last Scrollable: the decks list it was pushed over is still
-      // mounted behind it.
+      // A deck is 27 rows before the heading, so it starts well below the fold. The
+      // deck's own list is the last Scrollable: the decks list it was pushed over is
+      // still mounted behind it.
       await tester.scrollUntilVisible(
         find.text('Eviction Notice'),
         200,
@@ -603,7 +612,7 @@ void main() {
         reason: 'the heading comes before the cards it names',
       );
       // The count is the deck, which these are not part of.
-      expect(find.text('15 cards'), findsOneWidget);
+      expect(find.textContaining('40 cards'), findsOneWidget);
     });
 
     testWidgets('choosing Light repaints the app', (tester) async {

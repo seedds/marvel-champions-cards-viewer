@@ -1,0 +1,79 @@
+{
+  "_comment": [
+    "The pre-built decks whose printed contents a pack's collector-number run cannot",
+    "give on its own. build_decks reads every other deck straight out of marvelsdb: a",
+    "hero pack lists its cards in printed order, so the run from one identity to the",
+    "next is that identity's precon. 58 of the 67 come to exactly 40 cards that way,",
+    "and 24 of the finished decks were checked card for card against marvelcdb's",
+    "published precon lists -- every one agreed.",
+    "",
+    "Keyed on the identity's code. A set name can change upstream; a code does not. A",
+    "key no deck is built for fails the build rather than sitting here doing nothing.",
+    "",
+    "'aspect'    build the Core Set's shared aspect pool for this aspect into the deck.",
+    "'slots'     override the printed quantity of a card in the run, or add one to it.",
+    "'exclude'   drop a card the run holds but the deck does not.",
+    "'set_aside' move a card out of the deck and in beside it, keeping its quantity.",
+    "",
+    "Every entry says why. A precon is a physical fact about a box, so the reason has",
+    "to be checkable against something -- the save, the card's own text, or a printed",
+    "list -- and not a guess that happens to reach 40."
+  ],
+
+  "decks": {
+    "_core": [
+      "The Core Set's five. Core prints ONE shared aspect pool at positions 50-93 for",
+      "all five heroes, so a hero's run stops at its 15 signature cards and the other",
+      "25 are a pool nothing in the data assigns to anyone. The aspect below is from",
+      "marvelcdb's precon lists; the cards follow from it by the rule the box uses --",
+      "one copy of each unique card in that aspect's block, two of each non-unique, and",
+      "one of each of the eleven basic cards. That reproduces marvelcdb's Spider-Man,",
+      "She-Hulk and Black Panther precons exactly, which is why this is a rule and not",
+      "five hand-typed lists."
+    ],
+
+    "01001a": { "aspect": "justice" },
+    "01010a": { "aspect": "leadership" },
+    "01019a": { "aspect": "justice" },
+    "01029a": { "aspect": "aggression" },
+    "01040a": { "aspect": "protection" },
+
+    "_set_aside": [
+      "Cards the run holds that do not go into the deck, and that marvelsdb does not",
+      "mark `permanent` for us to notice. The Tabletop Simulator save is the check: it",
+      "cannot give a deck list, but it does say what starts beside the deck rather than",
+      "in it, and it holds each of these loose in the pack bag or in a deck of its own."
+    ],
+
+    "38001a": {
+      "set_aside": { "38002": 1 },
+      "_why": "Touched starts attached to an enemy, not in the deck. Loose in the save's Rogue Hero Pack bag beside her identity."
+    },
+    "25001a": {
+      "set_aside": { "25002": 1 },
+      "_why": "Death-Glow is attached to an enemy at setup. Loose in the save's Valkyrie Hero Pack bag."
+    },
+    "50034a": {
+      "slots": { "50038": 4 },
+      "_why": "Nick Fury's run is 39 because Assault and Stealth -- 50035a/b, the two sides of one card -- are set aside, which the save confirms by holding Assault loose in his pack bag. The run's own remainder is 39 and the box prints a fourth Covert Surveillance to make 40."
+    },
+
+    "_team_up": [
+      "A Team-Up card says 'Max 1 per deck' in its own text and carries deck_limit 1,",
+      "and a box prints two copies when both named partners are in it -- one for each",
+      "player -- and one copy when the partner ships elsewhere. build_decks caps every",
+      "card at its deck limit for this reason, which is what takes the nine packs that",
+      "print a doubled team-up down from 41 (Winter Soldier, with two, from 42) to 40.",
+      "",
+      "Nebula is the one pack the other way about. Her run holds 39 once Daughters of",
+      "Thanos is capped, and her box has no fortieth card to reach for, so the second",
+      "copy is it -- the cap is lifted rather than a card invented. Worth revisiting if",
+      "her printed list ever turns up."
+    ],
+
+    "22001a": {
+      "slots": { "22022": 2 },
+      "_why": "Nebula's run is 39 once Daughters of Thanos is capped, and her box holds no other card. The second copy is the fortieth."
+    }
+  }
+}

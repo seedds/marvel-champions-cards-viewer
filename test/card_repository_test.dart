@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:marvel_champions_cards_viewer/data/card_repository.dart';
 import 'package:marvel_champions_cards_viewer/data/marvel_card.dart';
+import 'package:marvel_champions_cards_viewer/ui/theme.dart';
 
 /// Tested against the real assets/cards.json rather than a fixture. The point of this
 /// layer is to be right about that file's quirks, and a fixture would only assert that
@@ -400,15 +401,54 @@ void main() {
       }
     });
 
-    test('a deck is the size of a real pre-built deck', () {
-      // Daredevil and Echo read as 30 cards each: the save holds their packs both
-      // loose and inside a patch bag, so every copy was counted twice.
+    test('every deck is 40 cards, which is the size of a pre-built deck', () {
+      // Every deck in the game is 40. The build script fails rather than write one
+      // that is not, so this is the assertion that says the whole pipeline is right
+      // about a fact with no exceptions -- and it is the one that would have caught
+      // reading the save's hero-deck bag, which gave all 67 decks 15 cards.
       for (final deck in repo.decks) {
         expect(
           deck.cardCount,
-          allOf(greaterThanOrEqualTo(15), lessThanOrEqualTo(16)),
+          40,
           reason: '${deck.name} holds ${deck.cardCount} cards',
         );
+      }
+    });
+
+    test("Spider-Man's deck is the precon as published", () {
+      // The one deck pinned card for card, against marvelcdb decklist 31300. The 40
+      // are derived from marvelsdb's printed order, and the Core Set's five need an
+      // override on top because Core prints one aspect pool shared by all five heroes
+      // -- so nothing but a published list can say this deck is justice and holds two
+      // For Justice! where the box holds three. Fifteen of these were missing.
+      final deck = repo.decks.firstWhere((deck) => deck.hero == '01001a');
+      expect(deck.aspects, ['justice']);
+      expect(deck.slots, {
+        '01002': 1, '01003': 2, '01004': 2, '01005': 3, '01006': 1,
+        '01007': 2, '01008': 2, '01009': 2, // signature
+        '01058': 1, '01059': 1, '01060': 2, '01061': 2, '01062': 2,
+        '01063': 2, '01064': 2, '01065': 2, // justice
+        '01083': 1, '01084': 1, '01085': 1, '01086': 1, '01087': 1, '01088': 1,
+        '01089': 1, '01090': 1, '01091': 1, '01092': 1, '01093': 1, // basic
+      });
+    });
+
+    test('every deck says which aspects it is built from', () {
+      for (final deck in repo.decks) {
+        expect(deck.aspects, isNotEmpty, reason: deck.name);
+        for (final aspect in deck.aspects) {
+          expect(
+            aspectColours.keys,
+            contains(aspect),
+            reason: '${deck.name} is built from $aspect, which has no colour',
+          );
+        }
+        // The aspect is the aspect of cards the deck actually holds, not a label
+        // alongside it.
+        final held = deck.slots.keys
+            .map((code) => repo.byCode(code)!.factionCode)
+            .toSet();
+        expect(held, containsAll(deck.aspects), reason: deck.name);
       }
     });
 
@@ -435,9 +475,9 @@ void main() {
     });
 
     test('every deck sets aside at least its obligation', () {
-      // The 15-card deck is not everything a hero pack gives you, and the save keeps
-      // the rest in three different places -- loose beside the identity, as a state of
-      // another card, or in a bag of its own. These come from set membership instead.
+      // A deck is not everything a hero pack gives you. The obligation is not even in
+      // the pack's own run -- marvelsdb prints it in the pack's *_encounter.json --
+      // which is why set-aside is completed from set membership rather than the run.
       for (final deck in repo.decks) {
         expect(deck.setAside, isNotEmpty, reason: deck.name);
         expect(
@@ -485,9 +525,11 @@ void main() {
       }
     });
 
-    test('a deck and its set-aside cards are the whole of the hero set', () {
-      // The point of deriving these from set membership: every card printed in a
-      // hero's set is accounted for exactly once, so none can go missing again.
+    test('a deck and its set-aside cards account for the whole hero set', () {
+      // Every card printed in a hero's set is in the deck, set aside beside it, or is
+      // the identity itself -- so none can go missing again. Not the reverse: a deck
+      // is 40 cards and a hero set is a dozen, and the rest of the deck is the aspect
+      // and basic cards the pack prints alongside, which are in no set at all.
       for (final deck in repo.decks) {
         final setCode = repo.byCode(deck.hero)!.setCode;
         final printed = all
@@ -496,7 +538,7 @@ void main() {
             .toSet();
         expect(
           {...deck.slots.keys, ...deck.setAside.keys, deck.hero},
-          printed,
+          containsAll(printed),
           reason: deck.name,
         );
       }

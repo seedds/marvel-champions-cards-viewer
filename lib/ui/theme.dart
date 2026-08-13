@@ -113,6 +113,22 @@ Color aspectTextColour(String factionCode, Brightness brightness) {
   return hsl.withLightness(hsl.lightness.clamp(0.0, 0.36)).toColor();
 }
 
+/// A faction, spelled the way the game does rather than as a snake_case code.
+const factionLabels = <String, String>{
+  'aggression': 'Aggression',
+  'justice': 'Justice',
+  'leadership': 'Leadership',
+  'protection': 'Protection',
+  'basic': 'Basic',
+  'hero': 'Hero',
+  'pool': 'Pool',
+  'encounter': 'Encounter',
+  'campaign': 'Campaign',
+};
+
+String factionLabel(String factionCode) =>
+    factionLabels[factionCode] ?? factionCode;
+
 /// A card type, spelled the way the game does rather than as a snake_case code.
 const typeLabels = <String, String>{
   'ally': 'Ally',

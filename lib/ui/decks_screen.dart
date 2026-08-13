@@ -55,9 +55,46 @@ class _DeckRow extends StatelessWidget {
     return CupertinoListTile.notched(
       leading: CardThumbnail(card: hero, width: 30),
       title: Text(deck.name),
-      subtitle: Text('${deck.cardCount} cards'),
+      subtitle: _AspectLine(deck: deck),
       trailing: const CupertinoListTileChevron(),
       onTap: onTap,
+    );
+  }
+}
+
+/// What a deck is built from and how big it is: "Justice — 40 cards".
+///
+/// The aspect is the first thing a person choosing between decks wants, and it is
+/// coloured because that is how the game itself distinguishes them. Six decks draw on
+/// more than one aspect, so this joins them rather than assuming a single one.
+class _AspectLine extends StatelessWidget {
+  const _AspectLine({required this.deck});
+
+  final Deck deck;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = CupertinoTheme.brightnessOf(context);
+    final style = captionStyle(context);
+
+    return Text.rich(
+      TextSpan(
+        children: [
+          for (final (index, aspect) in deck.aspects.indexed) ...[
+            if (index > 0) const TextSpan(text: ' \u00b7 '),
+            TextSpan(
+              text: factionLabel(aspect),
+              style: style.copyWith(
+                color: aspectTextColour(aspect, brightness),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          TextSpan(text: '  \u2014  ${deck.cardCount} cards', style: style),
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }
@@ -66,7 +103,7 @@ class _DeckRow extends StatelessWidget {
 ///
 /// Two groups, because a hero pack gives you more than a deck. The obligation goes into
 /// the encounter deck, a permanent like Wolverine's Claws starts in play, and Archangel
-/// is a form Angel turns into -- none of them is shuffled in with the fifteen, so
+/// is a form Angel turns into -- none of them is shuffled in with the forty, so
 /// showing them in one list would say they are.
 class _DeckScreen extends StatelessWidget {
   const _DeckScreen({required this.deck});
@@ -106,7 +143,7 @@ class _DeckScreen extends StatelessWidget {
               ),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('${deck.cardCount} cards', style: captionStyle(context)),
+                child: _AspectLine(deck: deck),
               ),
             ),
             Expanded(

@@ -69,7 +69,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                 title: 'Aspect',
                 values: _facets.factions,
                 selected: _filter.factions,
-                labelFor: _factionLabel,
+                labelFor: factionLabel,
                 colourFor: aspectColour,
                 onChanged: (next) =>
                     setState(() => _filter = _filter.copyWith(factions: next)),
@@ -110,19 +110,6 @@ class _FilterSheetState extends State<_FilterSheet> {
     );
   }
 }
-
-String _factionLabel(String code) => switch (code) {
-  'aggression' => 'Aggression',
-  'justice' => 'Justice',
-  'leadership' => 'Leadership',
-  'protection' => 'Protection',
-  'basic' => 'Basic',
-  'hero' => 'Hero',
-  'pool' => 'Pool',
-  'encounter' => 'Encounter',
-  'campaign' => 'Campaign',
-  _ => code,
-};
 
 /// Every value a facet takes, in the order it should be offered.
 class _Facets {
@@ -165,7 +152,7 @@ class _Facets {
       sets: sets.toList()..sort(),
       types: types.toList()..sort((a, b) => typeLabel(a).compareTo(typeLabel(b))),
       factions: factions.toList()
-        ..sort((a, b) => _factionLabel(a).compareTo(_factionLabel(b))),
+        ..sort((a, b) => factionLabel(a).compareTo(factionLabel(b))),
       traits: traits.toList()..sort(),
     );
   }

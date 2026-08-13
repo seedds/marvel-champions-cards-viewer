@@ -186,10 +186,13 @@ ignoring them.
 | Bags list their contents in a stable direction | The En Sabah Nur pack lists its nine Apocalypse cards in reverse cell order, and lists them twice. Positional rules must be checked against the art. |
 | Every scan is a card | 25 are trackers, reference cards and hero-size tokens, which have art and no marvelsdb record. They are mapped to `null` explicitly, so a new one fails the build rather than vanishing. |
 | The scans and the database agree on names | They mostly do. A scattering of typos — `Missle Launcher`, `Fanatacism`, `Petulent Pig`, `UItron` with a capital I — plus outright renames like `Vandarian Power Wand` for `Vandarian Power Stone`. |
-| A pack bag appears once | Daredevil's and Echo's appear twice — loose, and again inside a `Daredevil and Echo Patch Bag`. Reading decks without collapsing them counts every copy twice, and a 15-card deck reads as 30. |
-| A bag holds one deck's worth of one hero | A deck's identity card is not *in* the deck: the save keeps it loose in the pack bag beside it. So a deck read on its own cannot say whose it is, and 10 bags hold a second loose card as well — Vision's Intangible, Rogue's Touched, Wolverine's Claws. |
-| So the hero deck bag holds a hero's cards | It holds the 15 that go *into* the deck. The obligation, the permanents and the alternate hero forms are elsewhere, and in three different elsewheres: loose in the pack bag beside the identity, as a **state** of another card (Spectrum's Photon and Pulsar are states of Gamma), or in a bag of their own (Psylocke's Setup Cards). No rule over the save finds all three, so `_set_aside` reads marvelsdb's set membership instead — one rule, and it makes every hero set add up to identity + deck + set-aside exactly. 85 cards, and every hero has at least an obligation. |
-| A card in a hero's set is in that hero's deck | Not the obligation, which starts in the encounter deck, nor a permanent like Wolverine's Claws, which starts in play. Merging them into the deck list would say a 15-card deck is 17. They are a second group under their own heading, and `Deck.cardCount` stays the fifteen. |
+| A pack bag appears once | Daredevil's and Echo's appear twice — loose, and again inside a `Daredevil and Echo Patch Bag`. Nothing reads decks out of the save any more, but a rule that walks bags still has to collapse them. |
+| The save holds the pre-built decks | **It does not, and this is the thing to know about `decks.json`.** A `X's Hero Deck` bag holds 15 objects for 65 of the 66 packs — the hero's *signature* cards — while the aspect and basic cards that make up the other 25 sit in shared `Justice Aspect Cards` and `Basic Aspect Cards` bags with nothing tying them to a hero. Reading that bag is what gave all 67 decks 15 of their 40 cards, and it looked right for five builds because 15 is a plausible number and every card in it belongs. |
+| So the deck cannot be recovered | marvelsdb has it, as printed order. A hero pack file lists the identity, its signature cards, then the aspect and basic ones, and the encounter set is lifted into a separate `*_encounter.json` — so the run of consecutive collector numbers from one identity to the next *is* that identity's precon. 58 of the 67 runs come to exactly 40 cards, the legal deck size, and 24 of them were checked card for card against marvelcdb's published precon lists. All 24 agreed. |
+| A bag holds one deck's worth of one hero | A deck's identity card is not *in* the deck, and 10 bags hold a second loose card as well — Vision's Intangible, Rogue's Touched, Valkyrie's Death-Glow. Those loose cards are still worth reading: marvelsdb does not mark Touched or Death-Glow `permanent`, and the save sitting them beside the deck rather than in it is the only thing that says they are set aside. |
+| A card's printed quantity is how many the deck holds | Not for a **Team-Up** card, which says “Max 1 per deck” in its own text and carries `deck_limit` 1. A box prints two when both named partners are in it — one for each player — so Two Against the World, Unlikely Duo and Super-Soldiers each read as 2. That is nine packs at 41 cards, and Winter Soldier, which has two such cards, at 42. Capping every card at its own deck limit is the fix. |
+| A card in a hero's set is in that hero's deck | Not the obligation, which starts in the encounter deck, nor a permanent like Wolverine's Claws, which starts in play. Merging them in would say a 40-card deck is 42. They are a second group under their own heading, and `Deck.cardCount` stays the forty. The obligation is *not* in the run either — it is printed in the pack's `*_encounter.json` — so set-aside is completed from marvelsdb's set membership, which is one rule covering all of it. |
+| The Core Set works like every other pack | It is the one that does not, and it is the whole of `tools/precon_overrides.json`. Core prints **one shared aspect pool** at positions 50–93 for all five of its heroes, so a hero's run stops at its 15 signature cards and nothing in the data says which of the pool it takes or how many. The override names the aspect; the cards follow by the box's own rule — one of each unique card in that aspect, two of each non-unique, one of each of the eleven basics — which is 14 + 11 and takes all five to 40. It reproduces marvelcdb's Spider-Man, She-Hulk and Black Panther precons exactly. |
 | A hero pack's name identifies it | Two are `Black Panther Hero Pack` — T'Challa's and Shuri's — with identical bag *paths*, so nothing in the save's structure separates them. Decks are named and keyed by set name instead, which does. |
 | A widget test can boot the app and `pumpAndSettle` | Not this app. Loading is real async — a bundle read and an isolate — and the test clock is fake, so `pumpAndSettle` cannot advance it and times out. `boot` in `test/screens_test.dart` alternates `runAsync` with `pump` instead. |
 | `rootBundle` is fresh each test | It memoises the `Future` per key, and one created inside a previous test's fake-async zone never completes again. Without `setUp(rootBundle.clear)` the first test passes and every one after it hangs on the loading spinner. |
@@ -197,6 +200,52 @@ ignoring them.
 | A Cupertino bar takes its own space, like an `AppBar` | Neither bar does. Both are translucent and content scrolls behind them, so every list needs `listInsets` at both ends. A Material `AppBar` and `NavigationBar` were opaque, which is why nothing needed this before. |
 | iOS has a tooltip | It does not, and `Tooltip` is Material's. The flip and filter buttons carried `tooltip:` both as the label and as the handle their tests found them by; they now carry `Semantics(label:)` and are found by icon. |
 | A `CupertinoNavigationBar` has a `bottom` like an `AppBar` | The static one does not — only `CupertinoSliverNavigationBar` does. A deck's card count moved to a strip below the bar instead. |
+
+## The pre-built decks
+
+Each of the 67 hero packs ships a 40-card deck, ready to play out of the box. `decks.json`
+is those decks, and the cards that ship in the pack but start *outside* the deck.
+
+**The TTS save does not contain them.** Its `X's Hero Deck` bag holds 15 objects for 65
+of the 66 packs -- the hero's signature cards -- while the aspect and basic cards that
+make up the other 25 sit in shared `Justice Aspect Cards` and `Basic Aspect Cards` bags
+with nothing tying them to a hero. Reading that bag gave every deck 15 of its 40 cards,
+and looked right for five builds because every card in it does belong.
+
+marvelsdb carries the deck implicitly, as **printed order**. A hero pack file lists the
+identity, then its signature cards, then the aspect and basic ones, and the encounter set
+is lifted into a separate `*_encounter.json` -- so the run of consecutive collector
+numbers from one identity to the next is that identity's precon, and the gap where the
+encounter set was ends it. Three things have to be read right along the way:
+
+| Rule | Why |
+| --- | --- |
+| Follow `duplicate_of` | A reprint carries a pointer and no fields of its own, and `build_records` drops all 342. A pack printing its own Energy is printing Energy, and the app has no record of the reprint to show. |
+| Cap at `deck_limit` | A **Team-Up** card says "Max 1 per deck" and a box prints two when both partners are in it -- one per player. Nine packs read as 41 without this, and Winter Soldier, which has two, as 42. |
+| Set aside the permanents and the foreign sets | Wolverine's Claws start in play; Daredevil's five senses and Hercules' labors and gifts are sets of their own beside the hero's. The obligation is set aside too and is *not* in the run -- it is printed in the encounter file -- so set-aside is finished from set membership. |
+
+58 of the 67 runs come to 40 on that alone. **24 of the finished decks were checked card
+for card against marvelcdb's published precon lists, and all 24 agreed** -- the five Core
+Set decks included. The one disagreement in the whole comparison is Spectrum, whom
+marvelcdb gives 43 cards by counting her three alternate hero forms as deck slots.
+
+`tools/precon_overrides.json` is the other nine, each with its reasoning:
+
+- **The Core Set's five.** Core prints *one* aspect pool at positions 50-93 shared by all
+  five heroes, so a run stops at the 15 signature cards and nothing says which of the pool
+  a deck takes, or how many -- the box holds three For Justice! and Spider-Man plays two.
+  The override names the aspect and the cards follow by the box's own rule: one of each
+  unique card in that aspect, two of each non-unique, one of each of the eleven basics.
+- **Rogue's Touched, Valkyrie's Death-Glow, Nick Fury's Assault.** Set aside, and marvelsdb
+  does not mark them `permanent`. The save is the check: it holds each loose in the pack
+  bag rather than in the hero deck.
+- **Nebula**, whose run is 39 once her doubled Team-Up is capped and whose box has no
+  fortieth card to reach for, so the second copy is it.
+
+**A deck that is neither 40 cards nor overridden fails the build**, as does an override
+keyed on an identity no deck was built for. The aspects fall out of the finished deck
+rather than being asserted alongside it, and seven decks are legitimately multi-aspect
+-- Adam Warlock draws on all four -- which is why `Deck.aspects` is a list.
 
 ## Editions: the cards that share a name
 
@@ -260,8 +309,9 @@ declared in Material, and `data/settings.dart` has its own `AppTheme` instead.
 Three tabs. **Cards** is a browser over `cards.json` — one card per row, a search field
 under the nav bar, a filter sheet, and a detail screen that swipes between cards, flips a
 two-sided one, and picks between the editions of a card printed more than once.
-**Decks** is the 67 hero packs from `decks.json`, each the 15-card deck and, under a
-heading of its own, the cards set aside beside it. **Settings** is the
+**Decks** is the 67 hero packs from `decks.json`, each the 40-card pre-built deck with
+the aspects it is built from, and, under a heading of its own, the cards set aside
+beside it. **Settings** is the
 theme, as one navigation row saying what it is set to which opens a page of the three
 options — the shape of iOS's own Settings, rather than three radios on the page.
 No state-management package: the card data is one immutable list that never
@@ -312,7 +362,7 @@ subtle-but-harmless: a row under the nav bar's blur cannot be tapped at all.
 | `data/marvel_card.dart` | One record, transcribed. Absent stat vs. stat printed blank vs. starred stat are three different things. |
 | `data/card_repository.dart` | Folding backs into fronts, name folding for search, "what is this card's back?", "what else is this card printed as?", a deck's cards in release order. |
 | `data/card_filter.dart` | Facets, and splitting a trait line without shredding `S.H.I.E.L.D.` |
-| `data/deck.dart` | One hero pack, transcribed: the deck, and the cards set aside beside it. Its hero is never among either. |
+| `data/deck.dart` | One hero pack, transcribed: the 40-card deck, the aspects it is built from, and the cards set aside beside it. Its hero is never among either. |
 | `data/settings.dart` | The theme choice, and the JSON file it lives in. |
 | `ui/card_text.dart` | `<b>`, `<i>` and the 46 `[icon]` tokens. |
 | `ui/theme.dart` | The theme the chosen setting resolves to, `listInsets` for the translucent bars, the three named text sizes, and the aspect colours — including the darkened variant that keeps an aspect legible as text on a light background. |
@@ -340,6 +390,7 @@ subtle-but-harmless: a row under the nav bar's blur cannot be tapped at all.
 tools/
   build_assets.py            the pipeline
   card_overrides.json        171 hand-resolved scans, with the reasoning
+  precon_overrides.json      9 decks the printed order cannot give, with the reasoning
 assets/
   cards.json                 committed
   decks.json                 committed
