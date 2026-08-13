@@ -242,8 +242,13 @@ void main() {
       // false on 132 sheets that are a single card's own scanned back. That was every
       // main scheme's second stage and every alter-ego's portrait: 124 cards, and the
       // reason The Break-In! could not be turned over.
-      expect(all.where((c) => c.hasArt), hasLength(3898));
-      expect(all.where((c) => !c.hasArt), hasLength(58));
+      //
+      // 3,898 until five scans in the Shuri and Miles bags were pinned to the printing
+      // whose bag holds them. Each had resolved to a Core Set card that shares its name
+      // and was overwriting that card's art: 01044 wore Shuri's Vibranium, 01008 wore
+      // Miles' Web-Shooter, and the alter-ego portrait 01040b wore an ally's card.
+      expect(all.where((c) => c.hasArt), hasLength(3903));
+      expect(all.where((c) => !c.hasArt), hasLength(53));
     });
 
     // The build script reads orientation from the TTS save, where it is the only
@@ -394,6 +399,88 @@ void main() {
       }
     });
 
+    test('every deck sets aside at least its obligation', () {
+      // The 15-card deck is not everything a hero pack gives you, and the save keeps
+      // the rest in three different places -- loose beside the identity, as a state of
+      // another card, or in a bag of its own. These come from set membership instead.
+      for (final deck in repo.decks) {
+        expect(deck.setAside, isNotEmpty, reason: deck.name);
+        expect(
+          deck.setAside.keys.map((code) => repo.byCode(code)!.typeCode),
+          contains('obligation'),
+          reason: '${deck.name} sets aside no obligation',
+        );
+      }
+    });
+
+    test('the set-aside permanents are there', () {
+      // These were absent entirely: each sits loose in the pack bag rather than in the
+      // hero deck, which is the same place the identity card sits.
+      expect(_setAsideOf(repo, 'Wolverine'), contains('35002')); // Wolverine's Claws
+      expect(_setAsideOf(repo, 'Rogue'), contains('38002')); // Touched
+      expect(_setAsideOf(repo, 'Vision'), contains('26002')); // Intangible
+      // Spectrum's Photon and Pulsar are states of the Gamma card, not cards in a bag.
+      expect(_setAsideOf(repo, 'Spectrum'), containsAll(['21003', '21004']));
+      // Psylocke's Psi-Knife is in a "Setup Cards" bag of its own.
+      expect(_setAsideOf(repo, 'Psylocke'), contains('41002a'));
+      // Angel's alternate hero form, which is a card the deck never holds.
+      expect(_setAsideOf(repo, 'Angel'), contains('42001c')); // Archangel
+    });
+
+    test('a set-aside card is a real, browsable card with art', () {
+      for (final deck in repo.decks) {
+        for (final code in deck.setAside.keys) {
+          final card = repo.byCode(code);
+          expect(card, isNotNull, reason: '${deck.name} sets aside $code');
+          expect(repo.isBackSide(code), isFalse, reason: '${deck.name} sets aside $code');
+          // The five that had none were the five whose art a Core Set card was wearing.
+          expect(card!.hasArt, isTrue, reason: '${deck.name} sets aside $code');
+        }
+      }
+    });
+
+    test('nothing is both in the deck and set aside', () {
+      for (final deck in repo.decks) {
+        expect(
+          deck.setAside.keys.toSet().intersection(deck.slots.keys.toSet()),
+          isEmpty,
+          reason: deck.name,
+        );
+        expect(deck.setAside.keys, isNot(contains(deck.hero)), reason: deck.name);
+      }
+    });
+
+    test('a deck and its set-aside cards are the whole of the hero set', () {
+      // The point of deriving these from set membership: every card printed in a
+      // hero's set is accounted for exactly once, so none can go missing again.
+      for (final deck in repo.decks) {
+        final setCode = repo.byCode(deck.hero)!.setCode;
+        final printed = all
+            .where((card) => card.setCode == setCode && !repo.isBackSide(card.code))
+            .map((card) => card.code)
+            .toSet();
+        expect(
+          {...deck.slots.keys, ...deck.setAside.keys, deck.hero},
+          printed,
+          reason: deck.name,
+        );
+      }
+    });
+
+    test('setAsideCardsOf returns every card, in release order', () {
+      for (final deck in repo.decks) {
+        final slots = repo.setAsideCardsOf(deck);
+        expect(slots, hasLength(deck.setAside.length), reason: deck.name);
+        for (var i = 1; i < slots.length; i++) {
+          expect(
+            _precedes(slots[i - 1].card, slots[i].card),
+            isTrue,
+            reason: deck.name,
+          );
+        }
+      }
+    });
+
     test('the two Black Panther decks are told apart', () {
       // Neither the pack name nor the hero's name separates these: both packs are
       // "Black Panther Hero Pack" and both identities are called "Black Panther".
@@ -408,6 +495,10 @@ void main() {
     });
   });
 }
+
+/// The codes a named deck sets aside.
+Iterable<String> _setAsideOf(CardRepository repo, String name) =>
+    repo.decks.firstWhere((deck) => deck.name == name).setAside.keys;
 
 /// Whether [a] comes before [b] in release order: pack position, then position within
 /// the pack. Compared as numbers -- a string sort puts card 10 before card 2.

@@ -3,6 +3,9 @@
   "hero": "01001a",
   "id": "pack:spiderman",
   "name": "Spider-Man",
+  "set_aside": {
+   "01165": 1
+  },
   "slots": {
    "01002": 1,
    "01003": 2,
@@ -18,6 +21,9 @@
   "hero": "01010a",
   "id": "pack:captainmarvel",
   "name": "Captain Marvel",
+  "set_aside": {
+   "01175": 1
+  },
   "slots": {
    "01011": 1,
    "01012": 3,
@@ -33,6 +39,9 @@
   "hero": "01019a",
   "id": "pack:shehulk",
   "name": "She-Hulk",
+  "set_aside": {
+   "01160": 1
+  },
   "slots": {
    "01020": 1,
    "01021": 1,
@@ -49,6 +58,9 @@
   "hero": "01029a",
   "id": "pack:ironman",
   "name": "Iron Man",
+  "set_aside": {
+   "01170": 1
+  },
   "slots": {
    "01030": 1,
    "01031": 3,
@@ -66,6 +78,9 @@
   "hero": "01040a",
   "id": "pack:blackpanther",
   "name": "Black Panther",
+  "set_aside": {
+   "01155": 1
+  },
   "slots": {
    "01041": 1,
    "01042": 1,
@@ -85,6 +100,9 @@
   "hero": "03001a",
   "id": "pack:captainamerica",
   "name": "Captain America",
+  "set_aside": {
+   "03026": 1
+  },
   "slots": {
    "03002": 1,
    "03003": 2,
@@ -101,6 +119,9 @@
   "hero": "05001a",
   "id": "pack:msmarvel",
   "name": "Ms. Marvel",
+  "set_aside": {
+   "05025": 1
+  },
   "slots": {
    "05002": 1,
    "05003": 3,
@@ -118,6 +139,9 @@
   "hero": "06001a",
   "id": "pack:thor",
   "name": "Thor",
+  "set_aside": {
+   "06026": 1
+  },
   "slots": {
    "06002": 1,
    "06003": 3,
@@ -134,6 +158,9 @@
   "hero": "08001a",
   "id": "pack:blackwidow",
   "name": "Black Widow",
+  "set_aside": {
+   "08025": 1
+  },
   "slots": {
    "08002": 1,
    "08003": 2,
@@ -150,6 +177,9 @@
   "hero": "09001a",
   "id": "pack:doctorstrange",
   "name": "Doctor Strange",
+  "set_aside": {
+   "09027": 1
+  },
   "slots": {
    "09002": 1,
    "09003": 2,
@@ -167,6 +197,9 @@
   "hero": "10001a",
   "id": "pack:hulk",
   "name": "Hulk",
+  "set_aside": {
+   "10025": 1
+  },
   "slots": {
    "10002": 2,
    "10003": 2,
@@ -183,6 +216,9 @@
   "hero": "04001a",
   "id": "pack:hawkeye",
   "name": "Hawkeye",
+  "set_aside": {
+   "04026": 1
+  },
   "slots": {
    "04002": 1,
    "04003": 1,
@@ -199,6 +235,9 @@
   "hero": "04031a",
   "id": "pack:spiderwoman",
   "name": "Spider-Woman",
+  "set_aside": {
+   "04053": 1
+  },
   "slots": {
    "04032": 1,
    "04033": 2,
@@ -214,6 +253,10 @@
   "hero": "12001a",
   "id": "pack:antman",
   "name": "Ant-Man",
+  "set_aside": {
+   "12001c": 1,
+   "12025": 1
+  },
   "slots": {
    "12002": 1,
    "12003": 2,
@@ -230,6 +273,10 @@
   "hero": "13001a",
   "id": "pack:wasp",
   "name": "Wasp",
+  "set_aside": {
+   "13001c": 1,
+   "13026": 1
+  },
   "slots": {
    "13002": 1,
    "13003": 2,
@@ -246,6 +293,9 @@
   "hero": "14001a",
   "id": "pack:quicksilver",
   "name": "Quicksilver",
+  "set_aside": {
+   "14024": 1
+  },
   "slots": {
    "14002": 1,
    "14003": 4,
@@ -263,6 +313,9 @@
   "hero": "15001a",
   "id": "pack:scarletwitch",
   "name": "Scarlet Witch",
+  "set_aside": {
+   "15023": 2
+  },
   "slots": {
    "15002": 1,
    "15003": 1,
@@ -278,6 +331,9 @@
   "hero": "16001a",
   "id": "pack:groot",
   "name": "Groot",
+  "set_aside": {
+   "16025": 1
+  },
   "slots": {
    "16002": 2,
    "16003": 2,
@@ -295,6 +351,9 @@
   "hero": "16029a",
   "id": "pack:rocketraccoon",
   "name": "Rocket Raccoon",
+  "set_aside": {
+   "16053": 1
+  },
   "slots": {
    "16030": 2,
    "16031": 2,
@@ -312,6 +371,9 @@
   "hero": "17001a",
   "id": "pack:starlord",
   "name": "Star-Lord",
+  "set_aside": {
+   "17024": 1
+  },
   "slots": {
    "17002": 1,
    "17003": 3,
@@ -328,6 +390,9 @@
   "hero": "18001a",
   "id": "pack:gamora",
   "name": "Gamora",
+  "set_aside": {
+   "18024": 1
+  },
   "slots": {
    "18002": 1,
    "18003": 2,
@@ -344,6 +409,9 @@
   "hero": "19001a",
   "id": "pack:drax",
   "name": "Drax",
+  "set_aside": {
+   "19025": 1
+  },
   "slots": {
    "19002": 1,
    "19003": 2,
@@ -361,6 +429,9 @@
   "hero": "20001a",
   "id": "pack:venom",
   "name": "Venom",
+  "set_aside": {
+   "20023": 1
+  },
   "slots": {
    "20002": 2,
    "20003": 2,
@@ -377,6 +448,11 @@
   "hero": "21001a",
   "id": "pack:spectrum",
   "name": "Spectrum",
+  "set_aside": {
+   "21003": 1,
+   "21004": 1,
+   "21026": 1
+  },
   "slots": {
    "21002": 1,
    "21005": 1,
@@ -391,6 +467,9 @@
   "hero": "21031a",
   "id": "pack:adamwarlock",
   "name": "Adam Warlock",
+  "set_aside": {
+   "21066": 1
+  },
   "slots": {
    "21032": 1,
    "21033": 1,
@@ -407,6 +486,9 @@
   "hero": "22001a",
   "id": "pack:nebula",
   "name": "Nebula",
+  "set_aside": {
+   "22027": 1
+  },
   "slots": {
    "22002": 1,
    "22003": 1,
@@ -423,6 +505,9 @@
   "hero": "23001a",
   "id": "pack:warmachine",
   "name": "War Machine",
+  "set_aside": {
+   "23028": 1
+  },
   "slots": {
    "23002": 1,
    "23003": 1,
@@ -440,6 +525,10 @@
   "hero": "25001a",
   "id": "pack:valkyrie",
   "name": "Valkyrie",
+  "set_aside": {
+   "25002": 1,
+   "25028": 1
+  },
   "slots": {
    "25003": 1,
    "25004": 1,
@@ -457,6 +546,10 @@
   "hero": "26001a",
   "id": "pack:vision",
   "name": "Vision",
+  "set_aside": {
+   "26002": 1,
+   "26028": 1
+  },
   "slots": {
    "26003": 1,
    "26004": 1,
@@ -474,6 +567,9 @@
   "hero": "27001a",
   "id": "pack:ghostspider",
   "name": "Ghost-Spider",
+  "set_aside": {
+   "27025": 1
+  },
   "slots": {
    "27002": 3,
    "27003": 1,
@@ -489,8 +585,10 @@
   "hero": "27030a",
   "id": "pack:spidermanmilesmorales",
   "name": "Spider-Man - Miles Morales",
+  "set_aside": {
+   "27056": 1
+  },
   "slots": {
-   "01008": 2,
    "27031": 2,
    "27032": 2,
    "27033": 2,
@@ -498,13 +596,17 @@
    "27035": 1,
    "27036": 1,
    "27037": 1,
-   "27038": 1
+   "27038": 1,
+   "27039": 2
   }
  },
  {
   "hero": "28001a",
   "id": "pack:nova",
   "name": "Nova",
+  "set_aside": {
+   "28021": 1
+  },
   "slots": {
    "28002": 1,
    "28003": 2,
@@ -520,6 +622,11 @@
   "hero": "29001a",
   "id": "pack:ironheart",
   "name": "Ironheart",
+  "set_aside": {
+   "29002a": 1,
+   "29003a": 1,
+   "29028": 1
+  },
   "slots": {
    "29004": 1,
    "29005": 2,
@@ -537,6 +644,9 @@
   "hero": "30001a",
   "id": "pack:spiderham",
   "name": "Spider-Ham",
+  "set_aside": {
+   "30024": 1
+  },
   "slots": {
    "30002": 1,
    "30003": 2,
@@ -554,6 +664,10 @@
   "hero": "31001a",
   "id": "pack:spdr",
   "name": "SP//dr",
+  "set_aside": {
+   "31002a": 1,
+   "31025": 1
+  },
   "slots": {
    "31003": 1,
    "31004": 3,
@@ -572,6 +686,9 @@
   "hero": "32001a",
   "id": "pack:colossus",
   "name": "Colossus",
+  "set_aside": {
+   "32025": 1
+  },
   "slots": {
    "32002": 1,
    "32003": 1,
@@ -588,6 +705,10 @@
   "hero": "32030a",
   "id": "pack:shadowcat",
   "name": "Shadowcat",
+  "set_aside": {
+   "32031a": 1,
+   "32055": 1
+  },
   "slots": {
    "32032": 1,
    "32033": 1,
@@ -604,6 +725,9 @@
   "hero": "33001a",
   "id": "pack:cyclops",
   "name": "Cyclops",
+  "set_aside": {
+   "33027": 1
+  },
   "slots": {
    "33002": 1,
    "33003": 1,
@@ -620,6 +744,10 @@
   "hero": "34001a",
   "id": "pack:phoenix",
   "name": "Phoenix",
+  "set_aside": {
+   "34002a": 1,
+   "34028": 1
+  },
   "slots": {
    "34003": 1,
    "34004": 1,
@@ -638,6 +766,10 @@
   "hero": "35001a",
   "id": "pack:wolverine",
   "name": "Wolverine",
+  "set_aside": {
+   "35002": 1,
+   "35027": 1
+  },
   "slots": {
    "35003": 1,
    "35004": 1,
@@ -655,6 +787,9 @@
   "hero": "36001a",
   "id": "pack:storm",
   "name": "Storm",
+  "set_aside": {
+   "36030": 1
+  },
   "slots": {
    "36006": 1,
    "36007": 1,
@@ -670,6 +805,9 @@
   "hero": "37001a",
   "id": "pack:gambit",
   "name": "Gambit",
+  "set_aside": {
+   "37025": 1
+  },
   "slots": {
    "37002": 1,
    "37003": 1,
@@ -686,6 +824,10 @@
   "hero": "38001a",
   "id": "pack:rogue",
   "name": "Rogue",
+  "set_aside": {
+   "38002": 1,
+   "38024": 1
+  },
   "slots": {
    "38003": 1,
    "38004": 1,
@@ -700,6 +842,9 @@
   "hero": "40001a",
   "id": "pack:cable",
   "name": "Cable",
+  "set_aside": {
+   "40031": 1
+  },
   "slots": {
    "40002": 1,
    "40003": 3,
@@ -719,6 +864,9 @@
   "hero": "40037a",
   "id": "pack:domino",
   "name": "Domino",
+  "set_aside": {
+   "40065": 1
+  },
   "slots": {
    "40038": 1,
    "40039": 1,
@@ -738,6 +886,10 @@
   "hero": "41001a",
   "id": "pack:psylocke",
   "name": "Psylocke",
+  "set_aside": {
+   "41002a": 2,
+   "41025": 1
+  },
   "slots": {
    "41003": 1,
    "41004": 3,
@@ -754,6 +906,10 @@
   "hero": "42001a",
   "id": "pack:angel",
   "name": "Angel",
+  "set_aside": {
+   "42001c": 1,
+   "42024": 1
+  },
   "slots": {
    "42002": 1,
    "42003": 2,
@@ -770,6 +926,10 @@
   "hero": "43001a",
   "id": "pack:x23",
   "name": "X-23",
+  "set_aside": {
+   "43002": 1,
+   "43028": 1
+  },
   "slots": {
    "43003": 1,
    "43004": 2,
@@ -787,6 +947,9 @@
   "hero": "44001a",
   "id": "pack:deadpool",
   "name": "Deadpool",
+  "set_aside": {
+   "44032": 1
+  },
   "slots": {
    "44002": 1,
    "44003": 1,
@@ -805,6 +968,9 @@
   "hero": "45001a",
   "id": "pack:bishop",
   "name": "Bishop",
+  "set_aside": {
+   "45025": 1
+  },
   "slots": {
    "45002": 1,
    "45003": 1,
@@ -821,6 +987,9 @@
   "hero": "45030a",
   "id": "pack:magik",
   "name": "Magik",
+  "set_aside": {
+   "45053": 1
+  },
   "slots": {
    "45031": 1,
    "45032": 1,
@@ -838,6 +1007,9 @@
   "hero": "46001a",
   "id": "pack:iceman",
   "name": "Iceman",
+  "set_aside": {
+   "46024": 1
+  },
   "slots": {
    "46003": 2,
    "46004": 1,
@@ -854,6 +1026,9 @@
   "hero": "47001a",
   "id": "pack:jubilee",
   "name": "Jubilee",
+  "set_aside": {
+   "47023": 1
+  },
   "slots": {
    "47002": 1,
    "47003": 1,
@@ -876,6 +1051,9 @@
   "hero": "48001a",
   "id": "pack:nightcrawler",
   "name": "Nightcrawler",
+  "set_aside": {
+   "48026": 1
+  },
   "slots": {
    "48002": 1,
    "48003": 1,
@@ -893,6 +1071,9 @@
   "hero": "49001a",
   "id": "pack:magneto",
   "name": "Magneto",
+  "set_aside": {
+   "49027": 1
+  },
   "slots": {
    "49002": 1,
    "49003": 1,
@@ -910,6 +1091,9 @@
   "hero": "50001a",
   "id": "pack:mariahill",
   "name": "Maria Hill",
+  "set_aside": {
+   "50029": 1
+  },
   "slots": {
    "50002": 1,
    "50003": 2,
@@ -927,6 +1111,10 @@
   "hero": "50034a",
   "id": "pack:nickfury",
   "name": "Nick Fury",
+  "set_aside": {
+   "50035a": 1,
+   "50059": 1
+  },
   "slots": {
    "50036": 1,
    "50037": 2,
@@ -945,25 +1133,31 @@
   "hero": "51001a",
   "id": "pack:blackpanthershuri",
   "name": "Black Panther (Shuri)",
+  "set_aside": {
+   "51031": 1
+  },
   "slots": {
-   "01040a": 1,
-   "01044": 2,
-   "01047": 1,
-   "01049": 1,
+   "51002": 1,
    "51003": 2,
    "51004": 2,
    "51005": 1,
+   "51006": 2,
    "51007": 1,
    "51008": 1,
    "51009": 1,
    "51010": 1,
-   "51012": 1
+   "51011": 1,
+   "51012": 1,
+   "51013": 1
   }
  },
  {
   "hero": "52001a",
   "id": "pack:silk",
   "name": "Silk",
+  "set_aside": {
+   "52028": 1
+  },
   "slots": {
    "52002": 2,
    "52003": 3,
@@ -982,6 +1176,9 @@
   "hero": "53001a",
   "id": "pack:falcon",
   "name": "Falcon",
+  "set_aside": {
+   "53029": 1
+  },
   "slots": {
    "53002": 1,
    "53003": 2,
@@ -1001,6 +1198,9 @@
   "hero": "54001a",
   "id": "pack:wintersoldier",
   "name": "Winter Soldier",
+  "set_aside": {
+   "54027": 1
+  },
   "slots": {
    "54002": 1,
    "54003": 1,
@@ -1018,6 +1218,9 @@
   "hero": "56001a",
   "id": "pack:tigra",
   "name": "Tigra",
+  "set_aside": {
+   "56023": 1
+  },
   "slots": {
    "56002": 1,
    "56003": 1,
@@ -1033,6 +1236,9 @@
   "hero": "56029a",
   "id": "pack:hulkling",
   "name": "Hulkling",
+  "set_aside": {
+   "56054": 1
+  },
   "slots": {
    "56030": 1,
    "56031": 1,
@@ -1051,6 +1257,10 @@
   "hero": "58001a",
   "id": "pack:wonderman",
   "name": "Wonder Man",
+  "set_aside": {
+   "58002": 1,
+   "58025": 1
+  },
   "slots": {
    "58003": 3,
    "58004": 2,
@@ -1067,6 +1277,9 @@
   "hero": "59001a",
   "id": "pack:hercules",
   "name": "Hercules",
+  "set_aside": {
+   "59035": 1
+  },
   "slots": {
    "59008": 1,
    "59009": 3,
@@ -1084,6 +1297,9 @@
   "hero": "60001a",
   "id": "pack:daredevil",
   "name": "Daredevil",
+  "set_aside": {
+   "60032": 1
+  },
   "slots": {
    "60007": 1,
    "60008": 2,
@@ -1103,6 +1319,9 @@
   "hero": "60037a",
   "id": "pack:echo",
   "name": "Echo",
+  "set_aside": {
+   "60060": 1
+  },
   "slots": {
    "60039": 1,
    "60040a": 2,

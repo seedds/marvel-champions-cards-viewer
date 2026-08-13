@@ -3,8 +3,9 @@
 An offline card reference for *Marvel Champions: The Card Game*. Every card and every
 scan ships inside the app — it never reaches the network to show you a card.
 
-Three tabs: a browser over all 3,632 cards with search and filters, the 67 pre-built
-hero pack decks, and a theme setting. A card's detail screen swipes to its neighbours,
+Three tabs: a browser over all 3,632 cards with search and filters, the 67 hero packs —
+each the 15-card deck and the cards set aside beside it — and a theme setting. A card's
+detail screen swipes to its neighbours,
 flips a two-sided card, and picks between the printings of a card printed more than
 once.
 
@@ -38,7 +39,7 @@ python tools/build_assets.py --skip-images  # rebuild the JSON only, no network
 
 ```sh
 flutter analyze                                   # must be clean
-flutter test                                      # 80 tests, ~8s, headless
+flutter test                                      # 87 tests, ~6s, headless
 flutter test integration_test -d <simulator-id>   # the memory ceiling, needs a device
 ```
 

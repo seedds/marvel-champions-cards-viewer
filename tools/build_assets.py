@@ -1043,9 +1043,16 @@ def _check_backs_have_a_side(
 # cell per physical copy. Wakanda Forever! 01043d is quantity 2 and its two scans are
 # numbered 6/15 and 7/15, both printed 43D; Echo's Photographic Reflexes 60040a-c are
 # quantity 2 apiece. Either cell of such a pair is the same card.
+#
+# Shuri's Vibranium 51006 and Miles' Web-Shooter 27039 are the same, and both were
+# reached by an override rather than by name -- their names belong to a Core Set card
+# first, so the cascade sent them to 01044 and 01008. The crops confirm the pairs:
+# Vibranium 7/15 and 8/15, both (c)2025 and numbered 6, where Core's 01044 is (c)2019
+# and numbered 44; Web-Shooter 14/15 and 15/15, both numbered 39.
 TWO_SCANS_ARE_ONE_CARD = {
     "11001", "11006", "55015",
     "01043d", "60040a", "60040b", "60040c",
+    "51006", "27039",
 }
 
 
@@ -1379,13 +1386,16 @@ def link_printings(records: list[dict]) -> int:
 def build_decks(
     tts_cards: list[TTSCard], codes: dict[str, str], records: list[dict]
 ) -> list[dict]:
-    """The pre-built deck that ships in each hero pack.
+    """A hero's own cards: the 15-card deck in the pack, and what is set aside beside it.
 
     The save has already done the grouping: a hero pack bag holds a hero deck and a
     nemesis set, each a deck object with one entry per physical copy.
 
     Four things about the save make a naive reading wrong, and each is settled here
     rather than in the app -- see the notes on the fixes below.
+
+    The deck is not all of a hero's cards, and the rest come from marvelsdb rather than
+    the save -- see `_set_aside`.
     """
     by_code = {r["code"]: r for r in records}
     # back_link points forward, front to back. A deck listing a back side is listing a
@@ -1447,6 +1457,7 @@ def build_decks(
                     "name": name,
                     "hero": hero,
                     "slots": dict(sorted(slots.items())),
+                    "set_aside": _set_aside(hero, slots, records, by_code, fronts),
                 }
             )
 
@@ -1454,6 +1465,38 @@ def build_decks(
     if duplicates := [i for i, n in ids.items() if n > 1]:
         die(f"two decks share an id, which the app uses as a key: {duplicates}")
     return sorted(built, key=lambda d: by_code[d["hero"]]["sort_key"])
+
+
+def _set_aside(
+    hero: str,
+    slots: Counter,
+    records: list[dict],
+    by_code: dict[str, dict],
+    fronts: dict[str, str],
+) -> dict[str, int]:
+    """The cards in a hero's set that the 15-card deck does not hold.
+
+    The obligation, which starts in the encounter deck; permanents like Wolverine's
+    Claws, which start in play; and alternate hero forms like Archangel. Every hero has
+    at least an obligation, so a deck alone is never the whole of what a pack gives you.
+
+    These come from marvelsdb's set membership rather than from the save, because the
+    save puts them in three different places and no single rule finds them all: loose in
+    the pack bag beside the identity (Touched, Intangible), as a *state* of another card
+    (Spectrum's Photon and Pulsar are states of Gamma), or in a bag of their own
+    (Psylocke's Setup Cards). Set membership is one rule and covers all three.
+    """
+    hero_set = by_code[hero].get("set_code")
+
+    return {
+        card["code"]: card.get("quantity") or 1
+        for card in sorted(records, key=lambda r: r["code"])
+        # A back side is not browsed in its own right, and its front is already here.
+        if card.get("set_code") == hero_set
+        and card["code"] not in fronts
+        and card["code"] not in slots
+        and card["code"] != hero
+    }
 
 
 def _deck_heroes(
@@ -1650,6 +1693,7 @@ def report_diff(previous: dict, current: dict) -> None:
     line("cards", "cards")
     line("printings", "printings")
     line("decks", "decks")
+    line("set aside", "set_aside")
     line("unmatched", "unmatched")
 
 
@@ -1796,8 +1840,9 @@ def main() -> int:
 
     with_art = sum(1 for r in records if r.get("front_image"))
     printings = {r["variant_of"] for r in records if r.get("variant_of")}
+    set_aside = sum(len(deck["set_aside"]) for deck in decks)
     log(f"  cards.json  {len(records)} cards, {with_art} with art")
-    log(f"  decks.json  {len(decks)} decks")
+    log(f"  decks.json  {len(decks)} decks, {set_aside} cards set aside")
 
     current = {
         "marvelsdb_commit": state.get("commit"),
@@ -1807,6 +1852,7 @@ def main() -> int:
         "cards": len(records),
         "printings": len(printings),
         "decks": len(decks),
+        "set_aside": set_aside,
         "unmatched": len(result.unmatched),
     }
     report_diff(read_manifest(), current)

@@ -12,7 +12,7 @@ python tools/build_assets.py            # rebuild assets
 python tools/build_assets.py --dry-run  # report, change nothing
 
 flutter analyze                                   # must be clean
-flutter test                                      # data, text and the screens. 80 tests, ~8s
+flutter test                                      # data, text and the screens. 87 tests, ~6s
 flutter test integration_test -d <simulator-id>   # the memory ceiling only, on a device
 flutter run -d <simulator-id>
 ```
@@ -68,7 +68,7 @@ summary
   marvelsdb   dc62016 -> a1b3f90
   TTS save    8/3/2026 -> 11/2/2026
   sheets      695 -> 703
-  crops       3902 -> 3963
+  crops       3906 -> 3963
   cards       3956 -> 4014
 ```
 
@@ -78,12 +78,13 @@ rewrites nothing.
 
 ## Coverage
 
-3,898 of 3,956 cards have art. Of the 58 without:
+3,903 of 3,956 cards have art. Of the 53 without:
 
-- **44** are another side or printing of a card that does have art — an alternate
+- **4** are another side or printing of a card that does have art — an alternate
   artwork, or a printing the community scanned once.
-- **14** have no scan anywhere under their code: the five Hercules All Versus All cards,
-  the four Ronan Kree Fanatic cards, and five singletons.
+- **49** have no scan anywhere under their code: the six Kang printings, the ten
+  Magneto cards, the five Hercules All Versus All cards, the five Ronan cards, the four
+  Civil War Vision leaders, and singletons.
 
 This is the ceiling of the TTS save, not a bug in the pipeline. Both numbers should fall
 when the scans are next updated.
@@ -111,6 +112,15 @@ and `01043a` had been showing Shuri's 2025 card while the other four Core Set pr
 and `51005` itself showed nothing. `decks.json` had T'Challa's `01043a` listed inside
 Shuri's deck for the same reason.
 
+Pinning the two identities was still not the end of it. **Five more cards in the Shuri
+and Miles bags carried a name Core Set had printed first**, so the cascade sent each to
+the older code and each overwrote a Core Set card's art: `01044` wore Shuri's Vibranium,
+`01047` her Panther Claws, `01049` her Vibranium Suit, `01008` wore Miles' Web-Shooter,
+and the alter-ego portrait `01040b` wore Shuri's T'Challa **ally**. The five newer codes
+had nothing. A bag named for a hero holds that hero's printing; where the name cannot
+say so the printed quantity does, the Hero Set bag holding Vibranium twice where Core's
+`01044` is three. Fixing it also emptied the last cross-set slots out of `decks.json`.
+
 ## Matching scans to cards
 
 The hard part, and the reason this script exists. A TTS card object knows its nickname
@@ -124,9 +134,9 @@ against 4,813 distinct scans:
 | Stage | Resolves |
 | --- | --- |
 | The folded name is unique in marvelsdb | 3,493 |
-| Context: two-sidedness, orientation, player-vs-encounter, bag type, bag aspect, bag owner, set and pack name | 916 |
+| Context: two-sidedness, orientation, player-vs-encounter, bag type, bag aspect, bag owner, set and pack name | 909 |
 | A run of same-named cards, ordered by their position in the deck | 148 |
-| `tools/card_overrides.json` | 142 |
+| `tools/card_overrides.json` | 149 |
 | A two-sided card's two codes, collapsed to its front | 71 |
 | Deliberately not cards — trackers, reference cards | 22 |
 | A close name, but only inside the card's own set or pack | 21 |
@@ -156,6 +166,7 @@ ignoring them.
 | Two bags named for one hero hold one hero | `Spider-Man Hero Pack` is Miles Morales, whom Sinister Motives printed as plain "Spider-Man"; `Spider-Man (Peter Parker) Hero Pack` is Peter. Both objects are called `Spider-Man`, so nothing but the bag tells them apart. |
 | A card the save keeps as a state is not a card | Ant-Man and Wasp each have a tiny and a giant hero form, held as alternate states of the alter-ego object rather than as cards. All four are real cards with real scans, on the same sheet as their alter-egos. The letter in the corner names the form: `1A` tiny, `1C` giant. |
 | A code collision loses a card | It does not — it is worse. Two scans on one code share a filename, the last crop written wins, and the loser ends up *showing the winner's art*. Nothing downstream can see this, so `plan_crops` fails the build when an override lands on a code another cell already fills. |
+| So that check catches a collision | Only one an *override* causes. 819 codes are legitimately reached from several cells, so a collision between two name-matched scans says nothing on its own and cannot be failed on — which is exactly how `01044`, `01047`, `01049`, `01040b` and `01008` each spent five builds wearing another printing's picture. The check fires once a human pins one of the pair, which is why fixing these five surfaced two more. There is no automatic guard here, only the crops. |
 | A crop is current if it is newer than its sheet | Only if it still comes from the same cell. Re-matching a card keeps its filename and changes its source, and the stale file on disk is still newer than the sheet — so the cache must compare provenance against `crops.csv`, not just mtimes. |
 | `HEAD` is how you check a URL | Steam answers `HEAD` with 404 and `GET` with 200. A ranged `GET` stands in for it. |
 | Downloads should be parallel | Steam drops most concurrent requests — three of eight succeeded when measured — while sequential ones never failed. Parallelism here buys retries, not speed. |
@@ -177,6 +188,8 @@ ignoring them.
 | The scans and the database agree on names | They mostly do. A scattering of typos — `Missle Launcher`, `Fanatacism`, `Petulent Pig`, `UItron` with a capital I — plus outright renames like `Vandarian Power Wand` for `Vandarian Power Stone`. |
 | A pack bag appears once | Daredevil's and Echo's appear twice — loose, and again inside a `Daredevil and Echo Patch Bag`. Reading decks without collapsing them counts every copy twice, and a 15-card deck reads as 30. |
 | A bag holds one deck's worth of one hero | A deck's identity card is not *in* the deck: the save keeps it loose in the pack bag beside it. So a deck read on its own cannot say whose it is, and 10 bags hold a second loose card as well — Vision's Intangible, Rogue's Touched, Wolverine's Claws. |
+| So the hero deck bag holds a hero's cards | It holds the 15 that go *into* the deck. The obligation, the permanents and the alternate hero forms are elsewhere, and in three different elsewheres: loose in the pack bag beside the identity, as a **state** of another card (Spectrum's Photon and Pulsar are states of Gamma), or in a bag of their own (Psylocke's Setup Cards). No rule over the save finds all three, so `_set_aside` reads marvelsdb's set membership instead — one rule, and it makes every hero set add up to identity + deck + set-aside exactly. 85 cards, and every hero has at least an obligation. |
+| A card in a hero's set is in that hero's deck | Not the obligation, which starts in the encounter deck, nor a permanent like Wolverine's Claws, which starts in play. Merging them into the deck list would say a 15-card deck is 17. They are a second group under their own heading, and `Deck.cardCount` stays the fifteen. |
 | A hero pack's name identifies it | Two are `Black Panther Hero Pack` — T'Challa's and Shuri's — with identical bag *paths*, so nothing in the save's structure separates them. Decks are named and keyed by set name instead, which does. |
 | A widget test can boot the app and `pumpAndSettle` | Not this app. Loading is real async — a bundle read and an isolate — and the test clock is fake, so `pumpAndSettle` cannot advance it and times out. `boot` in `test/screens_test.dart` alternates `runAsync` with `pump` instead. |
 | `rootBundle` is fresh each test | It memoises the `Future` per key, and one created inside a previous test's fake-async zone never completes again. Without `setUp(rootBundle.clear)` the first test passes and every one after it hangs on the loading spinner. |
@@ -235,7 +248,8 @@ declared in Material, and `data/settings.dart` has its own `AppTheme` instead.
 Three tabs. **Cards** is a browser over `cards.json` — one card per row, a search field
 under the nav bar, a filter sheet, and a detail screen that swipes between cards, flips a
 two-sided one, and picks between the printings of a card printed more than once.
-**Decks** is the 67 pre-built hero pack decks from `decks.json`. **Settings** is the
+**Decks** is the 67 hero packs from `decks.json`, each the 15-card deck and, under a
+heading of its own, the cards set aside beside it. **Settings** is the
 theme, as one navigation row saying what it is set to which opens a page of the three
 options — the shape of iOS's own Settings, rather than three radios on the page.
 No state-management package: the card data is one immutable list that never
@@ -286,7 +300,7 @@ subtle-but-harmless: a row under the nav bar's blur cannot be tapped at all.
 | `data/marvel_card.dart` | One record, transcribed. Absent stat vs. stat printed blank vs. starred stat are three different things. |
 | `data/card_repository.dart` | Folding backs into fronts, name folding for search, "what is this card's back?", "what else is this card printed as?", a deck's cards in release order. |
 | `data/card_filter.dart` | Facets, and splitting a trait line without shredding `S.H.I.E.L.D.` |
-| `data/deck.dart` | One pre-built deck, transcribed. Its hero is never among its slots. |
+| `data/deck.dart` | One hero pack, transcribed: the deck, and the cards set aside beside it. Its hero is never among either. |
 | `data/settings.dart` | The theme choice, and the JSON file it lives in. |
 | `ui/card_text.dart` | `<b>`, `<i>` and the 46 `[icon]` tokens. |
 | `ui/theme.dart` | The theme the chosen setting resolves to, `listInsets` for the translucent bars, the three named text sizes, and the aspect colours — including the darkened variant that keeps an aspect legible as text on a light background. |
@@ -313,7 +327,7 @@ subtle-but-harmless: a row under the nav bar's blur cannot be tapped at all.
 2665262903.json              the TTS save, replaced on update
 tools/
   build_assets.py            the pipeline
-  card_overrides.json        164 hand-resolved scans, with the reasoning
+  card_overrides.json        171 hand-resolved scans, with the reasoning
 assets/
   cards.json                 committed
   decks.json                 committed

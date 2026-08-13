@@ -135,9 +135,16 @@ class CardRepository {
   /// The cards a [Deck] holds, in release order, each with how many copies of it the
   /// deck contains. A deck's own hero is not among them: it sits beside the deck in the
   /// pack rather than in it, and is [Deck.hero].
-  List<({MarvelCard card, int quantity})> cardsOf(Deck deck) {
+  List<({MarvelCard card, int quantity})> cardsOf(Deck deck) =>
+      _slotCards(deck.slots);
+
+  /// The rest of the hero's set, in release order -- see [Deck.setAside].
+  List<({MarvelCard card, int quantity})> setAsideCardsOf(Deck deck) =>
+      _slotCards(deck.setAside);
+
+  List<({MarvelCard card, int quantity})> _slotCards(Map<String, int> slots) {
     final cards = [
-      for (final entry in deck.slots.entries)
+      for (final entry in slots.entries)
         if (_byCode[entry.key] case final MarvelCard card)
           (card: card, quantity: entry.value),
     ];

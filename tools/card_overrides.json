@@ -124,6 +124,26 @@
     "Black Panther@Black Panther Hero Pack #1": "01040a",
     "Black Panther@Black Panther Hero Pack #2": "51001a",
 
+    "_reprinted_cards_belong_to_the_bag_that_holds_them": [
+      "Pinning the two identities was not enough: five more cards in these bags carry a",
+      "name that Core Set printed first, and the cascade sent each to the older code.",
+      "Every one of them overwrote a Core Set card's art rather than going blank --",
+      "01044 wore Shuri's Vibranium, 01047 her Panther Claws, 01049 her Vibranium Suit,",
+      "01008 wore Miles' Web-Shooter, and worst of all the alter-ego portrait 01040b",
+      "wore Shuri's T'Challa *ally*. The five newer codes had no art at all.",
+      "",
+      "A bag named for a hero holds that hero's printing. Where the name alone cannot",
+      "say so, the printed quantity does: the Hero Set bag holds Vibranium twice, which",
+      "is 51006's quantity, where Core Set's 01044 is three."
+    ],
+    "T'Challa@Black Panther Hero Pack / Black Panther's Hero Set": "51002",
+    "Vibranium@Black Panther Hero Pack / Black Panther's Hero Set #1": "51006",
+    "Vibranium@Black Panther Hero Pack / Black Panther's Hero Set #2": "51006",
+    "Panther Claws@Black Panther Hero Pack / Black Panther's Hero Set": "51011",
+    "Vibranium Suit@Black Panther Hero Pack / Black Panther's Hero Set": "51013",
+    "Web-Shooter@Spider-Man Hero Pack / Spider-Man's Hero Deck #1": "27039",
+    "Web-Shooter@Spider-Man Hero Pack / Spider-Man's Hero Deck #2": "27039",
+
     "_lettered_runs_are_separate_cards": [
       "A run of codes sharing a stem, one name, one type and no back_links is NOT one",
       "card in several artworks -- it is several cards a deck holds at once, differing",

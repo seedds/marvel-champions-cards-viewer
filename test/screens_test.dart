@@ -329,16 +329,21 @@ void main() {
   testWidgets('the picker on an unscanned card sits below its text',
       (tester) async {
     await boot(tester);
-    // 27039 Web-Shooter has no scan; the Core Set's 01008 does. The picker is the way
-    // to the art the card does have somewhere.
-    await search(tester, 'web-shooter');
-    await tester.tap(find.text('Web-Shooter').last);
+    // Coup de Grâce is printed in the Brawler and Commander role sets and neither 32176
+    // nor 32181 was ever scanned, so the card is all text and the picker has to follow
+    // it. Web-Shooter used to stand here, until 27039 was found to have a scan of its
+    // own that had been overwriting the Core Set printing's.
+    //
+    // The first row, not the last: Civil War's 56016 shares the name, has art and is
+    // not one of the two printings, and it sorts after them both.
+    await search(tester, 'coup de');
+    await tester.tap(find.text('Coup de Grâce').first);
     await tester.pumpAndSettle();
 
     expect(find.text('Printed 2 times'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('Printed 2 times')).dy,
-      greaterThan(tester.getTopLeft(find.text('Web-Shooter').first).dy),
+      greaterThan(tester.getTopLeft(find.text('Coup de Grâce').first).dy),
       reason: 'the text comes first, the printings after it',
     );
   });
@@ -496,6 +501,36 @@ void main() {
       // the tabs are not each a CupertinoTabView: a per-tab Navigator would leave the
       // tab bar visible under the card.
       expect(find.byType(CupertinoTabBar), findsNothing);
+    });
+
+    testWidgets('a deck shows its set-aside cards under their own heading',
+        (tester) async {
+      await boot(tester);
+      await openTab(tester, 'Decks');
+
+      // Eviction Notice is Spider-Man's obligation. It goes into the encounter deck
+      // rather than the player's, so it is not one of the fifteen -- and it was missing
+      // from the screen entirely, as every hero's obligation was.
+      await tester.tap(find.text('Spider-Man').first);
+      await tester.pumpAndSettle();
+
+      // A deck is 15 rows before the heading, so it starts below the fold. The deck's
+      // own list is the last Scrollable: the decks list it was pushed over is still
+      // mounted behind it.
+      await tester.scrollUntilVisible(
+        find.text('Eviction Notice'),
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.text('SET ASIDE'), findsOneWidget);
+      expect(find.text('Eviction Notice'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Eviction Notice')).dy,
+        greaterThan(tester.getTopLeft(find.text('SET ASIDE')).dy),
+        reason: 'the heading comes before the cards it names',
+      );
+      // The count is the deck, which these are not part of.
+      expect(find.text('15 cards'), findsOneWidget);
     });
 
     testWidgets('choosing Light repaints the app', (tester) async {

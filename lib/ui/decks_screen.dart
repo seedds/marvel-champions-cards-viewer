@@ -63,6 +63,11 @@ class _DeckRow extends StatelessWidget {
 }
 
 /// One deck's cards, in release order, with how many copies of each it holds.
+///
+/// Two groups, because a hero pack gives you more than a deck. The obligation goes into
+/// the encounter deck, a permanent like Wolverine's Claws starts in play, and Archangel
+/// is a form Angel turns into -- none of them is shuffled in with the fifteen, so
+/// showing them in one list would say they are.
 class _DeckScreen extends StatelessWidget {
   const _DeckScreen({required this.deck});
 
@@ -72,7 +77,12 @@ class _DeckScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final repository = CardRepositoryScope.of(context);
     final slots = repository.cardsOf(deck);
-    final cards = [for (final slot in slots) slot.card];
+    final setAside = repository.setAsideCardsOf(deck);
+    // Swiping the detail screen walks both groups, in the order they are shown.
+    final cards = [
+      for (final slot in slots) slot.card,
+      for (final slot in setAside) slot.card,
+    ];
 
     return CupertinoPageScaffold(
       backgroundColor: listBackground,
@@ -100,28 +110,57 @@ class _DeckScreen extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: ListView.builder(
-                itemExtent: CardRow.extent,
-                itemCount: slots.length,
+              // No itemExtent here, unlike the browse list: these are two dozen rows
+              // with headings between them, not 3,632 uniform ones, so there is no
+              // offset to jump to and nothing to gain by restating the arithmetic.
+              child: ListView(
                 // The count above holds the nav bar's inset for this one.
                 padding: listInsets(context, top: false),
-                itemBuilder: (context, index) {
-                  return _SlotRow(
-                    card: cards[index],
-                    quantity: slots[index].quantity,
-                    // Swiping on the detail screen walks this deck, in the order shown
-                    // here.
-                    onTap: () => Navigator.of(context, rootNavigator: true).push(
-                      CupertinoPageRoute(
-                        builder: (_) => CardDetailScreen(cards: cards, index: index),
-                      ),
+                children: [
+                  for (final (index, slot) in slots.indexed)
+                    _SlotRow(
+                      card: slot.card,
+                      quantity: slot.quantity,
+                      onTap: () => _open(context, cards, index),
                     ),
-                  );
-                },
+                  _GroupHeading(label: 'Set aside'),
+                  for (final (index, slot) in setAside.indexed)
+                    _SlotRow(
+                      card: slot.card,
+                      quantity: slot.quantity,
+                      onTap: () => _open(context, cards, slots.length + index),
+                    ),
+                ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The detail screen is pushed on the root navigator so it covers the tab bar, and is
+/// given both groups so a swipe carries on past the end of the deck.
+void _open(BuildContext context, List<MarvelCard> cards, int index) {
+  Navigator.of(context, rootNavigator: true).push(
+    CupertinoPageRoute(builder: (_) => CardDetailScreen(cards: cards, index: index)),
+  );
+}
+
+/// The label above a group of rows, in the shape iOS puts above a list section.
+class _GroupHeading extends StatelessWidget {
+  const _GroupHeading({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 22, 16, 6),
+      child: Text(
+        label.toUpperCase(),
+        style: captionStyle(context).copyWith(fontSize: 12, letterSpacing: 0.5),
       ),
     );
   }
