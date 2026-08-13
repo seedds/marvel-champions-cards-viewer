@@ -5,6 +5,7 @@ import 'package:marvel_champions_cards_viewer/main.dart';
 import 'package:marvel_champions_cards_viewer/ui/browse_screen.dart';
 import 'package:marvel_champions_cards_viewer/ui/card_detail_screen.dart';
 import 'package:marvel_champions_cards_viewer/ui/card_row.dart';
+import 'package:marvel_champions_cards_viewer/ui/card_text.dart';
 
 /// Walks the screens a person actually uses.
 ///
@@ -48,6 +49,13 @@ void main() {
   /// The filter and flip buttons are found by their icon: iOS has no tooltip, which is
   /// how the Material versions were found.
   Finder button(IconData icon) => find.byIcon(icon);
+
+  /// An edition row's caption, by the markup it is written in. `find.text` cannot see
+  /// these: a caption is a [CardText], so a `[wild]` pip is a WidgetSpan drawn as the
+  /// same lozenge the card's own text uses, and the rendered string has a hole in it.
+  Finder caption(String markup) => find.byWidgetPredicate(
+        (widget) => widget is CardText && widget.text == markup,
+      );
 
   Future<void> openFirstResult(WidgetTester tester) async {
     await tester.tap(find.byType(CardRow).first);
@@ -217,40 +225,87 @@ void main() {
 
   // 01101 Hydra Mercenary is printed three times -- Core Set's Rhino, Black Widow's
   // nemesis set and Winter Soldier's -- with different art each time and nothing in
-  // the data joining them. `tools/build_assets.py` joins them by what is printed.
-  testWidgets('a card printed several times offers its other printings',
-      (tester) async {
+  // the data joining them. `tools/build_assets.py` groups them by name and type.
+  testWidgets('a card with other editions offers them', (tester) async {
     await boot(tester);
     await search(tester, 'hydra mercenary');
     await openFirstResult(tester);
 
     Iterable<String> assets() => imagesOnScreen(tester).map((i) => i.asset);
     expect(assets(), contains('assets/CardImages/01101.webp'),
-        reason: 'the opened printing is the one on show');
+        reason: 'the opened edition is the one on show');
 
     // Each row leads with the card's name, as every other row in the app does, and is
-    // told apart by the caption under it -- a reprint's type, traits and text are all
-    // identical to the original's, so where it was printed is the only difference.
-    // Three rows plus the nav bar's title.
+    // told apart by the caption under it -- these three agree on type, traits and text,
+    // so where each was printed is the only difference. Three rows plus the nav title.
     expect(find.text('Hydra Mercenary'), findsNWidgets(4));
-    expect(find.text('Rhino  \u00b7  #101'), findsOneWidget);
-    expect(find.text('Black Widow Nemesis  \u00b7  #28'), findsOneWidget);
-    expect(find.text('Winter Soldier Nemesis  \u00b7  #31'), findsOneWidget);
+    expect(caption('Rhino  \u00b7  #101'), findsOneWidget);
+    expect(caption('Black Widow Nemesis  \u00b7  #28'), findsOneWidget);
+    expect(caption('Winter Soldier Nemesis  \u00b7  #31'), findsOneWidget);
 
-    await tester.tap(find.text('Winter Soldier Nemesis  \u00b7  #31'));
+    await tester.tap(caption('Winter Soldier Nemesis  \u00b7  #31'));
     await tester.pumpAndSettle();
     expect(assets(), contains('assets/CardImages/54031.webp'),
-        reason: 'choosing a printing swaps the art above');
+        reason: 'choosing an edition swaps the art above');
   });
 
-  testWidgets('a card printed once shows no picker', (tester) async {
+  // The five Wakanda Forever! cards are why the grouping is by name and type rather
+  // than by what is printed on them: 01043a-d differ by resource pip and deck limit,
+  // and Shuri's 51005 rewords a reminder sentence, so a rule wanting every printed
+  // field to agree left each of them alone on the screen.
+  testWidgets('editions differing by a resource pip are told apart by it',
+      (tester) async {
+    await boot(tester);
+    await search(tester, 'wakanda forever');
+    await openFirstResult(tester);
+
+    // All four Core Set printings caption as "Black Panther · #43", so the pip is the
+    // only thing between them. CardText draws it as the lozenge the card's text uses,
+    // which is why these are found as a caption rather than as flat text.
+    expect(caption('Black Panther  \u00b7  #43  \u00b7  [energy]'), findsOneWidget);
+    expect(caption('Black Panther  \u00b7  #43  \u00b7  [mental]'), findsOneWidget);
+    expect(caption('Black Panther  \u00b7  #43  \u00b7  [physical]'), findsOneWidget);
+    expect(caption('Black Panther  \u00b7  #43  \u00b7  [wild]'), findsOneWidget);
+
+    // Shuri's is the fifth row, and the picker draws four before it scrolls, so it is
+    // not built until scrolled to. It needs no pip to separate it -- a different set
+    // and number already do -- but it carries one, as the caption is per card.
+    const shuri = 'Black Panther (Shuri)  \u00b7  #5  \u00b7  [wild]';
+    expect(caption(shuri), findsNothing, reason: 'the fifth row is below the fold');
+    await tester.drag(find.byType(CardThumbnail).last, const Offset(0, -60));
+    await tester.pumpAndSettle();
+    expect(caption(shuri), findsOneWidget);
+
+    await tester.tap(caption(shuri));
+    await tester.pumpAndSettle();
+    expect(imagesOnScreen(tester).map((i) => i.asset),
+        contains('assets/CardImages/51005.webp'));
+  });
+
+  // Ant-Man's alter-ego is the back of 12001a; his giant form 12001c has no back at
+  // all. Seven groups mix the two, so the flip button belongs to the chosen edition
+  // rather than to the card the page was opened at.
+  testWidgets('the flip button follows the chosen edition', (tester) async {
+    await boot(tester);
+    await search(tester, 'ant-man');
+    await openFirstResult(tester);
+
+    expect(button(flipIcon), findsOneWidget, reason: '12001a has an alter-ego');
+
+    await tester.tap(caption('Ant-Man  \u00b7  #1  \u00b7  12001c'));
+    await tester.pumpAndSettle();
+    expect(button(flipIcon), findsNothing,
+        reason: 'the giant form has no second side to turn to');
+  });
+
+  testWidgets('a card with no other edition shows no picker', (tester) async {
     await boot(tester);
     await search(tester, 'backflip');
     await openFirstResult(tester);
 
-    // One printing, so the art keeps the whole screen exactly as it did before: no
+    // One edition, so the art keeps the whole screen exactly as it did before: no
     // picker row, and so no caption naming the set Backflip was printed in.
-    expect(find.text('Spider-Man  \u00b7  #3'), findsNothing);
+    expect(caption('Spider-Man  \u00b7  #3'), findsNothing);
     expect(imagesOnScreen(tester), hasLength(1));
   });
 
@@ -266,7 +321,7 @@ void main() {
       addTearDown(view.reset);
     });
 
-    testWidgets('the art sits at the top with its printings under it',
+    testWidgets('the art sits at the top with its editions under it',
         (tester) async {
       await boot(tester);
       await search(tester, 'hydra mercenary');
@@ -277,35 +332,52 @@ void main() {
           reason: 'the picture starts just below the nav bar, not a third of the way '
               'down the screen');
 
-      // The printings follow the picture rather than being pinned to the bottom edge,
+      // The editions follow the picture rather than being pinned to the bottom edge,
       // so the gap between them is the divider and nothing else. Found by caption,
       // because the name on each row is now the card's own and repeats down them.
-      final first = tester.getRect(find.text('Rhino  \u00b7  #101'));
+      final first = tester.getRect(caption('Rhino  \u00b7  #101'));
       expect(first.top - art.bottom, lessThan(60),
-          reason: 'the printings sit directly beneath the art');
+          reason: 'the editions sit directly beneath the art');
 
       // Whatever space is left over is below both, which is the point of the change.
-      final last = tester.getRect(find.text('Winter Soldier Nemesis  \u00b7  #31'));
+      final last = tester.getRect(caption('Winter Soldier Nemesis  \u00b7  #31'));
       expect(last.bottom, lessThan(800),
           reason: 'the whole column is packed towards the top');
 
       // Everything above is measured before any image has actually decoded -- the test
       // clock is fake -- which is the point. The art claims its box from the card's
       // `landscape` flag, so the picture is 366x531 on the first frame and the
-      // printings are already in their final place. Sized from the image instead, this
-      // would be 0x0 here and the printings would sit under the AppBar until the scan
+      // editions are already in their final place. Sized from the image instead, this
+      // would be 0x0 here and the editions would sit under the AppBar until the scan
       // arrived and shoved them down the screen.
       expect(art.width, moreOrLessEquals(366, epsilon: 1));
       expect(art.height, moreOrLessEquals(531, epsilon: 1));
     });
 
-    testWidgets('a card printed once is top-aligned too', (tester) async {
+    // Apocalypse's eight editions are 389pt of rows, which would leave a phone almost
+    // no room for the card itself, so the picker caps at four and scrolls. Opened by
+    // its exact name, because a search for it also finds The Horsemen of Apocalypse,
+    // which sorts first and is a main scheme printed once.
+    testWidgets('a large group does not crowd out the art', (tester) async {
+      await boot(tester);
+      await search(tester, 'apocalypse');
+      await tester.tap(find.text('Apocalypse').first);
+      await tester.pumpAndSettle();
+
+      final art = tester.getRect(find.byKey(artKey));
+      expect(art.height, greaterThan(300),
+          reason: 'the picture keeps most of the screen');
+      expect(find.byType(CardThumbnail), findsNWidgets(4),
+          reason: 'four rows are drawn; the other four are scrolled to');
+    });
+
+    testWidgets('a card with no other edition is top-aligned too', (tester) async {
       await boot(tester);
       await search(tester, 'backflip');
       await openFirstResult(tester);
 
       // No picker to make room for, but the picture still starts where every other
-      // card's does: a scan should not jump down the screen for want of a reprint.
+      // card's does: a scan should not jump down the screen for want of a picker.
       expect(tester.getRect(find.byKey(artKey)).top, lessThan(80));
       // A CupertinoNavigationBar is translucent, so the art draws behind it and the
       // SafeArea is what keeps it clear. Below the bar, not under it.
@@ -334,17 +406,18 @@ void main() {
     // it. Web-Shooter used to stand here, until 27039 was found to have a scan of its
     // own that had been overwriting the Core Set printing's.
     //
-    // The first row, not the last: Civil War's 56016 shares the name, has art and is
-    // not one of the two printings, and it sorts after them both.
+    // The first row, not the last: Civil War's 56016 shares the name, has art and is an
+    // event where these are upgrades, so it is not one of their editions, and it sorts
+    // after them both.
     await search(tester, 'coup de');
     await tester.tap(find.text('Coup de Grâce').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('Printed 2 times'), findsOneWidget);
+    expect(find.text('2 editions'), findsOneWidget);
     expect(
-      tester.getTopLeft(find.text('Printed 2 times')).dy,
+      tester.getTopLeft(find.text('2 editions')).dy,
       greaterThan(tester.getTopLeft(find.text('Coup de Grâce').first).dy),
-      reason: 'the text comes first, the printings after it',
+      reason: 'the text comes first, the editions after it',
     );
   });
 

@@ -76,116 +76,151 @@ void main() {
     });
   });
 
-  // A card reprinted into a second encounter set gets a wholly new code and nothing
-  // upstream joins it to the first. `tools/build_assets.py` joins them by what is
-  // printed on them and writes `variant_of`; these assert the join it arrived at.
-  group('printings of one card', () {
-    late List<MarvelCard> variants;
+  // Nothing upstream joins the cards that share a name: a card reprinted into a second
+  // encounter set gets a wholly new code and no pointer at all, and a hero, an ally and
+  // a minion can all be called Hawkeye. `tools/build_assets.py` groups them by name and
+  // type and writes `edition_of`; these assert the grouping it arrived at.
+  group('editions of one card', () {
+    late List<MarvelCard> editions;
 
     setUp(() {
-      variants = repo.browsable.where((c) => c.variantOf != null).toList();
+      editions = repo.browsable.where((c) => c.editionOf != null).toList();
     });
 
-    test('the expected number of cards are reprints', () {
-      expect(variants, hasLength(67));
-      expect(variants.map((c) => c.variantOf).toSet(), hasLength(43));
+    test('the expected number of cards have another edition', () {
+      expect(editions, hasLength(323));
+      expect(editions.map((c) => c.editionOf).toSet(), hasLength(206));
     });
 
-    test('a card printed once is its own only printing', () {
-      final rhino = repo.byCode('01113')!;
-      expect(repo.printingsOf(rhino), [rhino]);
+    test('a card whose name and type are unique is its own only edition', () {
+      final natasha = repo.byCode('08001a')!;
+      expect(repo.editionsOf(natasha), [natasha]);
     });
 
-    test('every printing of a card returns the same list, in release order', () {
+    test('every edition of a card returns the same list, in release order', () {
       // Hydra Mercenary is Core Set, Black Widow and Winter Soldier.
       const codes = ['01101', '08028', '54031'];
       for (final code in codes) {
         expect(
-          repo.printingsOf(repo.byCode(code)!).map((c) => c.code),
+          repo.editionsOf(repo.byCode(code)!).map((c) => c.code),
           codes,
           reason: code,
         );
       }
     });
 
-    test('a printing points at the first printing, not the one before it', () {
+    test('an edition points at the first of the group, not the one before it', () {
       // Four Corrupt Prison Guards, one per Wrecking Crew villain. A chain would need
       // walking; a direct pointer does not.
       for (final code in ['07023', '07037', '07052']) {
-        expect(repo.byCode(code)!.variantOf, '07008', reason: code);
+        expect(repo.byCode(code)!.editionOf, '07008', reason: code);
       }
     });
 
-    test('every variant_of names a card that is not itself a reprint', () {
-      for (final card in variants) {
-        final root = repo.byCode(card.variantOf!);
+    test('every edition_of names a card that is itself a root', () {
+      for (final card in editions) {
+        final root = repo.byCode(card.editionOf!);
         expect(root, isNotNull, reason: card.code);
-        expect(root!.variantOf, isNull, reason: card.code);
+        expect(root!.editionOf, isNull, reason: card.code);
       }
     });
 
-    test('no printing is a back side', () {
-      for (final card in variants) {
+    test('no edition is a back side', () {
+      for (final card in editions) {
         expect(repo.isBackSide(card.code), isFalse, reason: card.code);
-        expect(repo.isBackSide(card.variantOf!), isFalse, reason: card.code);
+        expect(repo.isBackSide(card.editionOf!), isFalse, reason: card.code);
       }
     });
 
     // The detail screen draws one art box for a whole group and swaps only the picture
     // in it. A group that disagreed about its shape would resize under the finger.
-    test('a group agrees on orientation and on having a second side', () {
-      for (final card in variants) {
-        final group = repo.printingsOf(card);
-        expect(group.map((c) => c.landscape).toSet(), hasLength(1),
+    // Two-sidedness is deliberately not asserted with it -- see the test below.
+    test('a group agrees on orientation', () {
+      for (final card in editions) {
+        expect(repo.editionsOf(card).map((c) => c.landscape).toSet(), hasLength(1),
             reason: card.code);
-        expect(
-          group.map((c) => c.backLink != null || c.doubleSided).toSet(),
-          hasLength(1),
-          reason: card.code,
-        );
       }
     });
 
-    // What separates a reprint from a card that merely shares a name. Each of these is
-    // a pair the join has to refuse, and each refuses it for a different reason.
-    test('cards that share a name but not their printing stay apart', () {
-      // Expert Kang has more health than the standard printing.
-      expect(repo.printingsOf(repo.byCode('11003')!), hasLength(1));
-      // Shuri's Vibranium has a deck limit of 2 where the Core Set's is 3.
-      expect(repo.printingsOf(repo.byCode('01044')!), hasLength(1));
-      // Master Mold I, II and III differ by stage alone.
-      expect(repo.printingsOf(repo.byCode('32109')!), hasLength(1));
-      // The Wakanda Forever! run shares its encounter set and differs by resource pip.
-      expect(repo.printingsOf(repo.byCode('01043a')!), hasLength(1));
+    // Which is why the flip button follows the chosen edition rather than the group:
+    // seven groups hold both a card with a back and one without.
+    test('a group may disagree about having a second side', () {
+      final antMan = repo.editionsOf(repo.byCode('12001a')!);
+      expect(antMan.map((c) => c.code), ['12001a', '12001c']);
+      expect(repo.backOf(antMan[0]), isNotNull, reason: 'his alter-ego');
+      expect(repo.backOf(antMan[1]), isNull, reason: 'the giant form has no back');
     });
 
-    // A reprint differs in nothing a card row shows -- same name, type, traits and
-    // text -- so the picker captions each row with where the card was printed instead.
-    // The printed number is part of that caption because set and pack alone are not
-    // unique: Civil War prints Superhero Registration Act four times, at 63, 96, 121 and
-    // 122, and 56096a and 56122a even have byte-identical art. Without the number those
-    // are four rows a person cannot tell apart.
-    test('every printing of a card gets a caption of its own', () {
-      for (final card in variants) {
-        final group = repo.printingsOf(card);
+    // Grouping is by name *and* type. Name alone would put these in one list, and they
+    // are different cards that happen to share a name rather than editions of one.
+    test('cards sharing a name but not a type stay apart', () {
+      expect(repo.editionsOf(repo.byCode('01001a')!).map((c) => c.code),
+          ['01001a', '27030a'], reason: 'the two Spider-Man heroes, not the allies');
+      expect(repo.editionsOf(repo.byCode('04045')!), hasLength(7),
+          reason: 'the Spider-Man allies, without either hero');
+      expect(repo.editionsOf(repo.byCode('50064')!).map((c) => c.code),
+          ['50064', '50065', '50066'],
+          reason: "Black Widow's villain stages, without her hero card");
+    });
+
+    // What the old rule -- two records are one card when every printed field agrees --
+    // kept apart, and what a person holding one of them would plainly want to see.
+    test('cards differing in what is printed on them are still editions', () {
+      // Expert Kang has more health than the standard printing.
+      expect(repo.editionsOf(repo.byCode('11003')!).map((c) => c.code),
+          ['11003', '11036']);
+      // Shuri's Vibranium has a deck limit of 2 where the Core Set's is 3.
+      expect(repo.editionsOf(repo.byCode('01044')!).map((c) => c.code),
+          ['01044', '51006']);
+      // Master Mold I, II and III differ by stage alone.
+      expect(repo.editionsOf(repo.byCode('32109')!), hasLength(3));
+      // The Wakanda Forever! run differs by resource pip, and Shuri's by a reworded
+      // reminder sentence. This is the group the grouping was widened for.
+      expect(repo.editionsOf(repo.byCode('01043a')!).map((c) => c.code),
+          ['01043a', '01043b', '01043c', '01043d', '51005']);
+    });
+
+    // The picker captions each row with where the card was printed, plus what is
+    // printed on it where that is not enough: the stage for a villain's three, and the
+    // resource pips for a run like Wakanda Forever! whose five agree on set and number.
+    // Four groups are separated by none of it and carry a flag saying the code stands
+    // in; every row of every group has to end up with a caption of its own.
+    test('every edition of a card gets a caption of its own', () {
+      for (final card in editions) {
+        final group = repo.editionsOf(card);
         final captions = group
-            .map((c) => '${c.setName ?? c.packName}/${c.packName}/${c.position}')
+            .map((c) => [
+                  c.setName ?? c.packName,
+                  c.position,
+                  c.stage,
+                  c.resources.join(),
+                  if (c.editionCaptionCode) c.code,
+                ].join('/'))
             .toSet();
         expect(captions, hasLength(group.length), reason: card.code);
       }
     });
 
+    // The four that need the code, and the reason each does. Asserted by name so that a
+    // data drop adding a fifth shows up as a failure here rather than as two rows in
+    // the picker that nothing tells apart.
+    test('only the groups that need the code carry the flag', () {
+      final flagged = repo.browsable.where((c) => c.editionCaptionCode);
+      expect(flagged.map((c) => c.name).toSet(),
+          {'Android Efficiency', 'Ant-Man', 'Wasp', 'Apocalypse'});
+    });
+
     // Grouping deliberately ignores where a card sits. An earlier rule also required
-    // the printings to be in different encounter sets, which admitted the first of
+    // the editions to be in different encounter sets, which admitted the first of
     // these -- a fifth printing sits in Synthezoid Smackdown -- and refused the second,
     // whose five are all in the Enchantress set and whose scans are byte-identical.
-    test('printings in one set or one pack are still one card', () {
-      final act = repo.printingsOf(repo.byCode('56063a')!);
+    test('editions in one set or one pack are still one card', () {
+      final act = repo.editionsOf(repo.byCode('56063a')!);
       expect(act.map((c) => c.code),
           ['56063a', '56096a', '56121a', '56122a', '57005a']);
       expect(act.where((c) => c.packName == 'Civil War'), hasLength(4));
 
-      final gaze = repo.printingsOf(repo.byCode('55007a')!);
+      final gaze = repo.editionsOf(repo.byCode('55007a')!);
       expect(gaze.map((c) => c.code),
           ['55007a', '55008a', '55009a', '55010a', '55011a']);
       expect(gaze.map((c) => c.setName).toSet(), {'Enchantress'});

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/cupertino.dart';
 
 import '../data/card_filter.dart';
@@ -6,6 +8,10 @@ import '../main.dart';
 import 'card_row.dart';
 import 'card_text.dart';
 import 'theme.dart';
+
+/// How many edition rows the picker shows before it scrolls. Four is what leaves a
+/// portrait card most of a phone's height; 23 of the 206 groups are larger.
+const _maxPickerRows = 4;
 
 /// One card, front and back -- and the cards either side of it.
 ///
@@ -26,6 +32,12 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
   late int _index = widget.index;
   bool _showingBack = false;
 
+  /// The edition being shown, when it is not the card the page was opened at. Held
+  /// here rather than in the page because the flip button is in the nav bar, and
+  /// whether a card has a back is a fact about the *chosen* edition: Ant-Man's 12001a
+  /// has one and his giant form 12001c does not, and seven groups are like that.
+  MarvelCard? _selected;
+
   @override
   void dispose() {
     _controller.dispose();
@@ -35,7 +47,7 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final repository = CardRepositoryScope.of(context);
-    final front = widget.cards[_index];
+    final front = _selected ?? widget.cards[_index];
 
     // A card's back comes in two shapes: a linked record with its own name and text,
     // or -- for 26002 Intangible alone -- a second face carried on this same record.
@@ -66,77 +78,77 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
       child: PageView.builder(
         controller: _controller,
         itemCount: widget.cards.length,
-        // A card turned over and swiped past goes back to its front, rather than
-        // being remembered face-down for the rest of the session.
+        // A card turned over and swiped past goes back to its front, and to the edition
+        // it was opened at, rather than being remembered for the rest of the session.
         onPageChanged: (index) => setState(() {
           _index = index;
           _showingBack = false;
+          _selected = null;
         }),
         itemBuilder: (context, index) => _CardPage(
           // Keyed by code so that swiping to another card builds a fresh page, rather
-          // than reusing this one's state and carrying its chosen printing across.
+          // than reusing this one's state.
           key: ValueKey(widget.cards[index].code),
           card: widget.cards[index],
+          // Only the page being looked at follows the chosen edition. The rest are off
+          // screen or sliding past, and show the card the list put there.
+          selected: index == _index ? front : widget.cards[index],
           // Every page but the current one is face-up: they are off screen or sliding
           // past, and the flip belongs to the card being looked at.
           showingBack: index == _index && showingBack,
           onFlip: index == _index && hasBack
               ? () => setState(() => _showingBack = !_showingBack)
               : null,
-          onShowFront: () => setState(() => _showingBack = false),
+          // Choosing an edition shows its front, rather than the side the previous one
+          // happened to be turned to -- and it may not have a back at all.
+          onSelected: (edition) => setState(() {
+            _selected = edition;
+            _showingBack = false;
+          }),
         ),
       ),
     );
   }
 }
 
-/// One card of the swipeable run -- and, when it was printed more than once, the
-/// printing of it currently on show.
-class _CardPage extends StatefulWidget {
+/// One card of the swipeable run -- and, when others share its name and type, the
+/// edition currently on show.
+class _CardPage extends StatelessWidget {
   const _CardPage({
     required this.card,
+    required this.selected,
     required this.showingBack,
     required this.onFlip,
-    required this.onShowFront,
+    required this.onSelected,
     super.key,
   });
 
+  /// The card this page is for, which is what decides the group of editions.
   final MarvelCard card;
+
+  /// The edition on show, [card] itself unless one was chosen.
+  final MarvelCard selected;
+
   final bool showingBack;
   final VoidCallback? onFlip;
-
-  /// Turns the card face-up. Choosing a printing shows its front, rather than the side
-  /// the previous printing happened to be turned to.
-  final VoidCallback onShowFront;
-
-  @override
-  State<_CardPage> createState() => _CardPageState();
-}
-
-class _CardPageState extends State<_CardPage> {
-  late MarvelCard _selected = widget.card;
-  List<MarvelCard>? _printings;
+  final ValueChanged<MarvelCard> onSelected;
 
   @override
   Widget build(BuildContext context) {
     final repository = CardRepositoryScope.of(context);
-    // Computed once: the repository's answer cannot change while a page is alive.
-    final printings = _printings ??= repository.printingsOf(widget.card);
+    final editions = repository.editionsOf(card);
 
-    final front = _selected;
+    final front = selected;
     final linkedBack = repository.backOf(front);
-    final face = widget.showingBack ? (linkedBack ?? front) : front;
-    final image = widget.showingBack ? repository.backImageOf(front) : front.frontImage;
+    final face = showingBack ? (linkedBack ?? front) : front;
+    final image = showingBack ? repository.backImageOf(front) : front.frontImage;
 
-    final picker = printings.length < 2
+    final picker = editions.length < 2
         ? null
-        : _Printings(
-            printings: printings,
-            selected: _selected,
-            onSelected: (printing) {
-              setState(() => _selected = printing);
-              widget.onShowFront();
-            },
+        : _Editions(
+            editions: editions,
+            selected: selected,
+            onSelected: onSelected,
           );
 
     // The scan is the card: everything the heading, stats and text below would say is
@@ -155,10 +167,10 @@ class _CardPageState extends State<_CardPage> {
         // the bar's own inset is what keeps the card's name out from under it.
         padding: EdgeInsets.fromLTRB(16, MediaQuery.paddingOf(context).top + 12, 16, 40),
         children: [
-          _Heading(card: face, front: front, showingBack: widget.showingBack),
+          _Heading(card: face, front: front, showingBack: showingBack),
           const SizedBox(height: 12),
           _Stats(card: face),
-          _Body(card: face, front: front, showingBack: widget.showingBack),
+          _Body(card: face, front: front, showingBack: showingBack),
           const SizedBox(height: 16),
           _Provenance(card: front),
           // At the bottom rather than up where the art would be: the text is what the
@@ -168,7 +180,7 @@ class _CardPageState extends State<_CardPage> {
               padding: EdgeInsets.symmetric(vertical: 16),
               child: _Separator(),
             ),
-            _PrintingsHeading(count: printings.length),
+            _EditionsHeading(count: editions.length),
             const SizedBox(height: 4),
             picker,
           ],
@@ -183,7 +195,7 @@ class _CardPageState extends State<_CardPage> {
       // way and landscape the other -- Criminal Enterprise, both Choosing Sides. `face`
       // is already the record for the side being drawn.
       landscape: face.landscape,
-      onTap: widget.onFlip,
+      onTap: onFlip,
     );
 
     return SafeArea(
@@ -194,19 +206,23 @@ class _CardPageState extends State<_CardPage> {
             // Flexible rather than Expanded, so the picture asks for its own height and
             // no more: a portrait scan on a phone is limited by the width, and under
             // Expanded the leftover height would be split above and below it. Here the
-            // column packs from the top instead, the printings sit directly beneath the
+            // column packs from the top instead, the editions sit directly beneath the
             // art rather than against the bottom edge, and the slack falls below both.
             // Still flexible, so a card too tall for the space shrinks to fit rather
             // than pushing the picker off the screen.
             Flexible(child: art),
-            // The picker asks only for its own rows -- the largest group is five -- so
-            // a card printed twice gives up two rows' worth of picture, not a third of
-            // the screen.
+            // The picker asks only for its own rows, so a card with one other edition
+            // gives up two rows' worth of picture rather than a third of the screen.
+            // Past [_maxPickerRows] it scrolls instead: Apocalypse's eight would be
+            // 389pt, which leaves a phone almost no room for the card itself.
             if (picker != null) ...[
               const SizedBox(height: 12),
               const _Separator(),
               ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: printings.length * CardRow.extent),
+                constraints: BoxConstraints(
+                  maxHeight:
+                      min(editions.length, _maxPickerRows) * CardRow.extent,
+                ),
                 child: picker,
               ),
             ],
@@ -306,43 +322,34 @@ class _Art extends StatelessWidget {
 
 /// The label above the picker on an unscanned card, where it has no art beside it to
 /// explain what the list is.
-class _PrintingsHeading extends StatelessWidget {
-  const _PrintingsHeading({required this.count});
+class _EditionsHeading extends StatelessWidget {
+  const _EditionsHeading({required this.count});
 
   final int count;
 
   @override
   Widget build(BuildContext context) {
-    return Text('Printed $count times', style: captionStyle(context));
+    return Text('$count editions', style: captionStyle(context));
   }
 }
 
-/// Every printing of one card, to pick between.
+/// Every card sharing one name and type, to pick between.
 ///
 /// Shaped like a [CardRow] -- name on top, a caption under it -- because that is what a
 /// row of this app means, and a list whose first line is a set name reads as a list of
 /// sets. The name repeats down the rows, which is the point: it says what is being
 /// chosen between.
 ///
-/// The caption is where the card was printed, since a reprint differs from its original
-/// in nothing else a row shows: same type, same traits, same text. It carries the
-/// printed number as well as the set because four groups hold several copies from one
-/// set -- Civil War prints Superhero Registration Act at positions 63, 96, 121 and 122,
-/// two of which have byte-identical art. Without the number those are four rows a
-/// person cannot tell apart.
-///
-/// Set and number are enough on their own: no group of printings has two rows sharing
-/// both. The pack is left to the provenance block below, which gives it in full for
-/// whichever printing is chosen, rather than spent on a line that has a phone's width
-/// to fit in.
-class _Printings extends StatelessWidget {
-  const _Printings({
-    required this.printings,
+/// The caption is [_editionCaption], which has to separate every row of a group. Where
+/// it cannot, `tools/build_assets.py` says so on the card and the code stands in.
+class _Editions extends StatelessWidget {
+  const _Editions({
+    required this.editions,
     required this.selected,
     required this.onSelected,
   });
 
-  final List<MarvelCard> printings;
+  final List<MarvelCard> editions;
   final MarvelCard selected;
   final ValueChanged<MarvelCard> onSelected;
 
@@ -351,25 +358,26 @@ class _Printings extends StatelessWidget {
     final tint = CupertinoTheme.of(context).primaryColor;
 
     return ListView.builder(
-      // Sized by its parent, and short: 38 groups, the largest five rows.
+      // Sized by its parent, and short: 206 groups, the largest eight rows, and past
+      // four the parent's cap makes this scroll.
       shrinkWrap: true,
       physics: const ClampingScrollPhysics(),
       padding: EdgeInsets.zero,
-      itemCount: printings.length,
+      itemCount: editions.length,
       itemExtent: CardRow.extent,
       itemBuilder: (context, index) {
-        final printing = printings[index];
-        final isSelected = printing.code == selected.code;
+        final edition = editions[index];
+        final isSelected = edition.code == selected.code;
 
         return GestureDetector(
-          onTap: () => onSelected(printing),
+          onTap: () => onSelected(edition),
           behavior: HitTestBehavior.opaque,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             color: isSelected ? tint.withValues(alpha: 0.10) : null,
             child: Row(
               children: [
-                CardThumbnail(card: printing, width: CardRow.thumbnailWidth),
+                CardThumbnail(card: edition, width: CardRow.thumbnailWidth),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -377,19 +385,19 @@ class _Printings extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        printing.name,
+                        edition.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: rowTitleStyle(context).copyWith(
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                         ),
                       ),
-                      Text(
-                        '${printing.setName ?? printing.packName}'
-                        '  \u00b7  #${printing.position}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      // CardText rather than Text, so a resource pip is the same
+                      // lozenge here as it is in the card's own text below.
+                      CardText(
+                        _editionCaption(edition),
                         style: rowCaptionStyle(context),
+                        maxLines: 1,
                       ),
                     ],
                   ),
@@ -402,6 +410,30 @@ class _Printings extends StatelessWidget {
       },
     );
   }
+}
+
+/// What one edition's row says beneath the name, which has to be different from every
+/// other row of its group. Mirrors `_edition_caption` in `tools/build_assets.py`, which
+/// is what checks that it is.
+///
+/// Where the card was printed separates most groups. The rest need what is printed on
+/// the card: the stage, for a villain's three; the resource pips, for a run like
+/// Wakanda Forever! whose five agree on set and number and differ by the pip alone.
+///
+/// Four groups are separated by none of it -- Android Efficiency's three differ by a pip
+/// inside their boost text, Ant-Man and Wasp by the attack of their giant form, and two
+/// Apocalypse stages by scheme. The build script marks those and the code stands in: it
+/// is printed on the card, and it is unique by construction.
+String _editionCaption(MarvelCard card) {
+  return [
+    card.setName ?? card.packName,
+    '#${card.position}',
+    if (card.stage != null) 'Stage ${card.stage}',
+    // Rendered by CardText as the same lozenge the card's own text uses.
+    if (card.resources.isNotEmpty)
+      card.resources.map((resource) => '[$resource]').join(),
+    if (card.editionCaptionCode) card.code,
+  ].join('  \u00b7  ');
 }
 
 class _Heading extends StatelessWidget {

@@ -17,7 +17,7 @@ class CardRepository {
     this.decks,
     this._byCode,
     this._backToFront,
-    this._printingsByRoot,
+    this._editionsByRoot,
     this._foldedNames,
   );
 
@@ -31,9 +31,9 @@ class CardRepository {
   final Map<String, MarvelCard> _byCode;
   final Map<String, String> _backToFront;
 
-  /// Every printing of a card, keyed by the code of its first printing. Only cards
-  /// printed more than once are in here -- 38 groups over 97 cards.
-  final Map<String, List<MarvelCard>> _printingsByRoot;
+  /// Every card sharing a name and type, keyed by the code of the first of them. Only
+  /// cards with a sibling are in here -- 206 groups over 529 cards.
+  final Map<String, List<MarvelCard>> _editionsByRoot;
 
   /// Folded name per entry of [browsable], in the same order, so filtering a query
   /// never re-folds 3,600 names.
@@ -100,14 +100,18 @@ class CardRepository {
     return backOf(card)?.frontImage;
   }
 
-  /// Every printing of [card], in release order, [card] itself among them.
+  /// Every card sharing [card]'s name and type, in release order, [card] among them.
   ///
-  /// A card printed once returns just itself, so a caller never has to special-case the
-  /// common one. The 38 cards printed into more than one encounter set -- Hydra
-  /// Mercenary across three, Corrupt Prison Guard across four -- return the whole run,
-  /// which is the same list whichever of them is asked.
-  List<MarvelCard> printingsOf(MarvelCard card) =>
-      _printingsByRoot[card.variantOf ?? card.code] ?? [card];
+  /// A card whose name and type are unique returns just itself, so a caller never has
+  /// to special-case the common one. The five Wakanda Forever! cards -- four Core Set
+  /// printings differing by resource pip, and Shuri's -- return the whole run, which is
+  /// the same list whichever of them is asked.
+  ///
+  /// Grouped by name and type rather than by what is printed on the card, so a person
+  /// looking at one is shown the others to choose between. Type is in the key because
+  /// name alone would put Spider-Man's hero card in a list with seven allies.
+  List<MarvelCard> editionsOf(MarvelCard card) =>
+      _editionsByRoot[card.editionOf ?? card.code] ?? [card];
 
   /// True when [card] is the back of some other card, and so is not browsed in its
   /// own right. Computed from what links *to* a record, because the letter suffix
@@ -181,14 +185,14 @@ class CardRepository {
         if (!backToFront.containsKey(card.code)) card,
     ];
 
-    // `variant_of` names the first printing directly rather than the one before it, so
-    // a group is one pass and needs no walk to a root. The build script guarantees that:
-    // it links every member of a group to the group's first card.
-    final printingsByRoot = <String, List<MarvelCard>>{};
+    // `edition_of` names the first of a group directly rather than the one before it,
+    // so a group is one pass and needs no walk to a root. The build script guarantees
+    // that: it links every member of a group to the group's first card.
+    final editionsByRoot = <String, List<MarvelCard>>{};
     for (final card in browsable) {
-      final root = card.variantOf;
+      final root = card.editionOf;
       if (root == null) continue;
-      printingsByRoot
+      editionsByRoot
           .putIfAbsent(root, () => [byCode[root]!])
           .add(card);
     }
@@ -203,7 +207,7 @@ class CardRepository {
       decks,
       byCode,
       backToFront,
-      printingsByRoot,
+      editionsByRoot,
       [for (final card in browsable) foldName(card.name)],
     );
   }

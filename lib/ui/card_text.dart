@@ -7,10 +7,14 @@ import 'package:flutter/cupertino.dart';
 /// everything else becomes its name in small caps. That is honest about what is
 /// missing rather than printing `[per_hero]` at a reader.
 class CardText extends StatelessWidget {
-  const CardText(this.text, {super.key, this.style});
+  const CardText(this.text, {super.key, this.style, this.maxLines});
 
   final String text;
   final TextStyle? style;
+
+  /// Null -- a card's own text runs to as many lines as it needs. Set where this is a
+  /// row's caption and a second line would push the row past its fixed extent.
+  final int? maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -18,6 +22,8 @@ class CardText extends StatelessWidget {
     return Text.rich(
       TextSpan(children: _parse(text, base)),
       style: base,
+      maxLines: maxLines,
+      overflow: maxLines == null ? null : TextOverflow.ellipsis,
     );
   }
 }

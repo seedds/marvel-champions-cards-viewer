@@ -12,7 +12,7 @@ python tools/build_assets.py            # rebuild assets
 python tools/build_assets.py --dry-run  # report, change nothing
 
 flutter analyze                                   # must be clean
-flutter test                                      # data, text and the screens. 87 tests, ~6s
+flutter test                                      # data, text and the screens. 93 tests, ~7s
 flutter test integration_test -d <simulator-id>   # the memory ceiling only, on a device
 flutter run -d <simulator-id>
 ```
@@ -180,7 +180,7 @@ ignoring them.
 | A lettered code run is a card's sides | Only when `back_link` says so. `11007a`/`11007b` are one card's two sides and collapse to the front. `01043a`–`01043d`, Wakanda Forever!, links to nothing and is **four different cards** a deck holds at once, differing by resource pip. Collapsing a run was worth 30 scans and every one of them was this; see the row below. |
 | A run with one name, one type and no links is one card in several artworks | It never once was. Six runs reach the matcher — Wakanda Forever!, Jubilee's Firecracker, Flash of Light and Plasmoid Energy, Echo's Photographic Reflexes, Ultron's Android Efficiency — and all six are distinct cards separated by pips or by text. Collapsing them pointed every member at one filename, so the last crop won and the other 14 cards wore its art. `01043a` showed Shuri's `51005`. |
 | A run can be read positionally instead | Not this kind. The save lists **all six** of these runs in reverse cell order, so `_stage_matches` gets the two ends backwards and only the middle right — 8 of 12 wrong when measured against the crops. The printed collector number is the only authority, and these runs are in `card_overrides.json`. |
-| Two records with one name and one text are one card | Only if *everything* printed on them agrees. Kang (Iron Lad) `11003` and the Expert `11036` share both and differ by health; `01044` Vibranium allows 3 per deck where Shuri's `51006` allows 2. See "Cards printed more than once". |
+| Two records with one name are one card | They are usually not — a hero, an ally and a minion can all be called Hawkeye — but the app groups them anyway, by name *and type*, because a person holding one wants the others. What it does not do is ask whether the printed fields agree: that rule kept Kang (Iron Lad) `11003` from the Expert `11036` on health and both Vibraniums apart on `deck_limit`, and each is a card the other's reader wants. See "Editions". |
 | A reprint goes into a new encounter set | Often, and not always. Civil War prints Superhero Registration Act four times into the *same* set, at 63, 96, 121 and 122, and the Enchantress set holds five Hypnotic Gaze. A rule keyed on the set admits the first — a fifth printing is in Synthezoid Smackdown — and refuses the second. |
 | `duplicate_of` marks a reprint | It marks 342 upstream records, every one of them nameless — a code, a pack and a pointer. `build_records` drops them all, and none of them is the case the app cares about: a reprint with its own code and its own art carries no pointer at all. |
 | Bags list their contents in a stable direction | The En Sabah Nur pack lists its nine Apocalypse cards in reverse cell order, and lists them twice. Positional rules must be checked against the art. |
@@ -198,43 +198,55 @@ ignoring them.
 | iOS has a tooltip | It does not, and `Tooltip` is Material's. The flip and filter buttons carried `tooltip:` both as the label and as the handle their tests found them by; they now carry `Semantics(label:)` and are found by icon. |
 | A `CupertinoNavigationBar` has a `bottom` like an `AppBar` | The static one does not — only `CupertinoSliverNavigationBar` does. A deck's card count moved to a strip below the bar instead. |
 
-## Cards printed more than once
+## Editions: the cards that share a name
 
-A card can be printed several times, each printing with its own code and its own art:
-Hydra Mercenary is in the Core Set, Black Widow's nemesis set and Winter Soldier's.
-Nothing upstream joins them. `duplicate_of` exists but only ever on the 342 nameless
-pointer records `build_records` drops, and never on this case.
+A name is not unique in this game. Hydra Mercenary is the Core Set's, Black Widow's
+nemesis set's and Winter Soldier's, three codes with three pieces of art and nothing
+upstream joining them. Wakanda Forever! is five: four Core Set printings differing by
+resource pip, and Shuri's. Ant-Man is his hero card and his giant form. A person holding
+one of these wants the others in front of them — choosing between them is the whole
+question the card poses — so `link_editions` groups them by **name and type** and writes
+`edition_of`, and the detail screen shows the group as a picker.
 
-So `link_printings` joins them by **what is printed on the card**: two records are one
-card when every printed field agrees. Six fields may differ, and each has a card that
-proves it belongs on the list:
+**Type is in the key.** Name alone gives 339 groups over 909 cards and puts Spider-Man's
+hero card in a list with seven allies and a minion, and Black Widow's with three
+villains. Those share a name and are not editions of each other in any sense a player
+would recognise. 17 of those groups also mix portrait with landscape, which the one art
+box cannot draw. Name and type gives **206 groups over 529 cards**; the summary prints
+the count, so a data drop that changes it says so.
 
-| May differ | Because |
-| --- | --- |
-| `illustrator`, `flavor` | New art is the point of a reprint. |
-| `quantity` | Copies in a pack, not identity. Goblin Glider is 1 in Mutagen Formula, 2 in Goblin Gimmicks. |
-| `errata` | Recorded against whichever printing the ruling named. I've Been Waiting For This! carries it on `07041` alone. |
-| position, set, pack | Where it sits, not what it is. |
+What this deliberately does **not** ask is whether the printed fields agree. An earlier
+rule did — two records were one card when every printed field matched, with a short
+ignore-list — and it is why Wakanda Forever! was five groups of one for five builds. The
+same rule split Kang (Iron Lad) `11003` from its Expert printing `11036` on health, both
+Vibraniums on `deck_limit`, and Master Mold I, II and III on `stage`. Every one of those
+is a card a person holding the other would want to see. Grouping is now about what a
+person is choosing between, not about whether two records are the same object.
 
-Two that look like they belong there and do not: **`deck_limit`** is all that separates
-Vibranium `01044` (3) from Shuri's `51006` (2), and **`stage`** is all that separates
-Master Mold I, II and III.
-
-**Nothing about where a card sits enters into it.** Requiring the printings to be in
-different encounter sets sounds right and is wrong — see the facts table. 43 groups over
-110 cards; the summary prints the count, so a data drop that changes it says so.
-
-The picker fails the build if two printings of one card share a pack, set and printed
-number, because the rows would then be captioned identically. That is also why the
-caption carries the number: two of Civil War's four Superhero Registration Acts have
-byte-identical art, and set and pack alone leave four rows nothing tells apart.
+**Nothing about where a card sits enters into it.** Requiring the editions to be in
+different encounter sets sounds right and is wrong — see the facts table.
 
 A picker row leads with the **card's name**, like every other row in the app, and puts
-the set and printed number in the caption beneath. The name is the same on all of them,
-which is the point — it says what is being chosen between. Leading with the set name
-instead made the list read as a list of sets. The pack is not in the caption: set and
-number already separate every row of every group, and the provenance block below gives
-the pack in full for whichever printing is chosen.
+`_edition_caption` beneath it. The name is the same on all of them, which is the point —
+it says what is being chosen between. Leading with the set name instead made the list
+read as a list of sets.
+
+The caption has to separate every row of a group, and is built up only as far as it must
+be:
+
+| In the caption | Because |
+| --- | --- |
+| set (or pack, where a card is in no set) | Separates most groups on its own. |
+| printed number | Civil War prints Superhero Registration Act four times into one set, two of them with byte-identical art. |
+| `stage`, when printed | A villain's three stages are one set and three numbers, but the stage is what a person reads. |
+| resource pips | The only thing between `01043a`–`01043d`, which agree on set *and* number. Drawn by `CardText` as the same lozenge the card's own text uses. |
+
+Four groups are separated by none of it, and the build script marks them with
+`edition_caption_code` so the **card's code** stands in: Android Efficiency's three
+differ by a pip inside their boost text, Ant-Man and Wasp by the attack of their giant
+form, and two Apocalypse stages by scheme. `link_editions` fails the build if even the
+code collides. The pack is not in the caption — the provenance block below gives it in
+full for whichever edition is chosen.
 
 ## The app
 
@@ -247,7 +259,7 @@ declared in Material, and `data/settings.dart` has its own `AppTheme` instead.
 
 Three tabs. **Cards** is a browser over `cards.json` — one card per row, a search field
 under the nav bar, a filter sheet, and a detail screen that swipes between cards, flips a
-two-sided one, and picks between the printings of a card printed more than once.
+two-sided one, and picks between the editions of a card printed more than once.
 **Decks** is the 67 hero packs from `decks.json`, each the 15-card deck and, under a
 heading of its own, the cards set aside beside it. **Settings** is the
 theme, as one navigation row saying what it is set to which opens a page of the three

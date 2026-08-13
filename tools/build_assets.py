@@ -1279,105 +1279,112 @@ def build_records(
         records.append(record)
 
     records.sort(key=lambda r: (r["sort_key"], r["code"]))
-    link_printings(records)
+    link_editions(records)
     return records
 
 
-# Fields that may differ between two printings of one card. Everything else printed on
-# the card has to match, or they are not the same card.
-#
-# `quantity` is how many copies a pack holds, not an identity -- Goblin Glider is 1 in
-# Mutagen Formula and 2 in Goblin Gimmicks. `errata` is recorded against whichever
-# printing the ruling named, so I've Been Waiting For This! carries it on 07041 alone.
-# `illustrator` and `flavor` differ because differing art is the whole point.
-#
-# What is deliberately *not* here: `deck_limit`, which is the only thing separating
-# Vibranium 01044 (3) from Shuri's 51006 (2), and `stage`, without which Master Mold I,
-# II and III collapse into one card.
-PRINTING_IGNORED = frozenset({
-    "code", "pack_code", "pack_name", "position", "set_position", "set_code",
-    "set_name", "front_image", "back_image", "back_link", "sort_key",
-    "illustrator", "flavor", "card_set_code", "quantity", "errata",
-})
+# The resource pips a card is printed with, in the order the picker names them. Four
+# runs of cards are separated by nothing else printed on them -- Wakanda Forever!,
+# Jubilee's Firecracker and Flash of Light, Echo's Photographic Reflexes -- so a caption
+# without these has rows a person cannot tell apart.
+RESOURCE_FIELDS = (
+    ("resource_physical", "physical"),
+    ("resource_mental", "mental"),
+    ("resource_energy", "energy"),
+    ("resource_wild", "wild"),
+)
 
 
-def link_printings(records: list[dict]) -> int:
-    """Point every reprint of a card at the first printing of it, via `variant_of`.
+def _edition_caption(record: dict) -> tuple:
+    """What the picker prints under an edition's name, as a tuple, for uniqueness.
 
-    Upstream has a `duplicate_of` field, but it is only ever on the nameless pointer
-    records `build_records` drops, and it never covers this case: a card reprinted into
-    a second encounter set gets a wholly new code and no pointer at all. Hydra Mercenary
-    is three codes across Rhino, Black Widow Nemesis and Winter Soldier Nemesis, and
-    nothing in the data joins them.
+    Set (or pack, when a card is in none) and printed number separate almost every
+    edition of a card. Stage separates a villain's three, and the resource pips separate
+    a run like Wakanda Forever! whose members share even their printed number.
+    """
+    return (
+        record.get("set_name") or record["pack_name"],
+        record["position"],
+        record.get("stage"),
+        tuple(name for field, name in RESOURCE_FIELDS if record.get(field)),
+    )
 
-    So the join is by what is printed on the card: two cards are one card when every
-    printed field agrees. See PRINTING_IGNORED for the handful that may differ.
 
-    Nothing about *where* the cards sit enters into it. An earlier version also required
-    the printings to be in different encounter sets, which sounds right -- a reprint
-    goes into a new set -- and is not, because a card can be printed several times into
-    one set. Civil War prints Superhero Registration Act at 63, 96, 121 and 122; the
-    Enchantress set holds five Hypnotic Gaze at 7 to 11, whose five scans are
-    byte-identical. Requiring different sets admitted the first of those, because a
-    fifth printing happens to sit in Synthezoid Smackdown, and refused the second. The
-    same card, treated two ways, on an accident of set naming.
+def link_editions(records: list[dict]) -> int:
+    """Group the cards that share a name and a type, via `edition_of`.
 
-    Near-misses this correctly refuses, none of which needed that clause: Kang (Iron
-    Lad) 11003 and its Expert printing 11036 share a name and text but not health;
-    Vibranium 01044 has a deck limit of 3 where Shuri's 51006 has 2; Master Mold I, II
-    and III differ by stage; and the Wakanda Forever! run 01043a-d differ by resource
-    pip, which is four cards a deck draws between rather than one card printed four
-    times.
+    A name is not unique in this game and never was: an ally, a minion and a hero can
+    all be called Hawkeye. What the app wants is the other way round -- a person looking
+    at one Wakanda Forever! wants the other four in front of them, because choosing
+    between them is the whole question a card with five printings poses.
+
+    So the join is by **name and type**. Type is in the key because the alternative,
+    name alone, puts Spider-Man's hero card in a list with seven allies and a minion,
+    and Black Widow's hero card with three villains. Those share a name and are not
+    editions of each other in any sense a player would recognise. Name and type gives
+    206 groups over 529 cards; name alone gives 339 over 909, and 17 of those groups
+    mix portrait with landscape, which the one art box cannot draw.
+
+    What this deliberately no longer does is ask whether the printed fields agree. That
+    rule -- two records are one card when every printed field matches -- is why the five
+    Wakanda Forever! records were five groups of one: 01043a-d differ by resource pip
+    and deck limit, and Shuri's 51005 rewords a reminder sentence. It also split Kang
+    (Iron Lad) from its Expert printing on health, and both Vibraniums on deck limit.
+    Every one of those is a card a person holding the other would want to see.
 
     Returns the number of groups found.
     """
     # A back side is not browsed in its own right, and follows whichever front claims
-    # it. Grouping backs as well would pair them by their own text and produce a second,
+    # it. Grouping backs as well would pair them by their own name and produce a second,
     # redundant set of links the app would have to ignore.
     backs = {r["back_link"] for r in records if r.get("back_link")}
 
-    groups: dict[str, list[dict]] = {}
+    groups: dict[tuple[str, str], list[dict]] = {}
     for record in records:
         if record["code"] in backs:
             continue
-        key = json.dumps(
-            {k: v for k, v in sorted(record.items()) if k not in PRINTING_IGNORED},
-            sort_keys=True,
-            ensure_ascii=False,
-        )
-        groups.setdefault(key, []).append(record)
+        groups.setdefault((record["name"], record["type_code"]), []).append(record)
 
     found = 0
     for group in groups.values():
         if len(group) < 2:
             continue
 
-        # A picker row is the card's name over its set and printed number, so two
-        # printings agreeing on both would be two rows nothing tells apart. The pack is
-        # deliberately not in this key even though it is in the record: it is not on the
-        # row, so it cannot separate one. Nothing in the data collides; this says so if
-        # that changes.
-        stamps = {(r.get("set_name") or r["pack_name"], r["position"]) for r in group}
-        if len(stamps) != len(group):
-            die(f"printings of {group[0]['name']!r} share a set and printed number, so "
-                f"the picker would show identical rows: {[r['code'] for r in group]}")
-
         # The app draws one art box for the whole group and only swaps the picture in
-        # it, so a group that disagreed about its shape or about having a second side
-        # would need a box that changed size under the finger that tapped it. Nothing in
-        # the data does today; this is here so that a future data drop says so loudly
-        # rather than producing a picker that jumps.
+        # it, so a group that disagreed about its shape would need a box that changed
+        # size under the finger that tapped it. Nothing in the data does today; this is
+        # here so that a future data drop says so loudly rather than producing a picker
+        # that jumps.
+        #
+        # Two-sidedness is deliberately *not* checked with it. Seven groups genuinely
+        # mix it -- Ant-Man's 12001a has a back where his giant form 12001c has none,
+        # and Apocalypse, Green Goblin, Collector, Wasp, Mister Sinister and The Shadow
+        # King are the same -- so the flip button belongs to the chosen edition rather
+        # than to the group, which is what the detail screen does with it.
         if len({r["landscape"] for r in group}) > 1:
-            die(f"printings of {group[0]['name']!r} disagree on orientation: "
-                f"{[r['code'] for r in group]}")
-        if len({bool(r.get("back_link") or r.get("double_sided")) for r in group}) > 1:
-            die(f"printings of {group[0]['name']!r} disagree on two-sidedness: "
+            die(f"editions of {group[0]['name']!r} disagree on orientation: "
                 f"{[r['code'] for r in group]}")
 
         # Release order, so the original comes first and later sets follow it.
         group.sort(key=lambda r: (r["sort_key"], r["code"]))
-        for reprint in group[1:]:
-            reprint["variant_of"] = group[0]["code"]
+
+        # A picker row is the card's name over this caption, so two editions agreeing on
+        # all of it would be two rows nothing tells apart. Four groups do: Android
+        # Efficiency's three differ only by a pip inside their boost text, Ant-Man and
+        # Wasp by the attack of their giant form, and two Apocalypse stages by scheme.
+        # Those fall back to the code, which is at least printed on the card and is
+        # unique by construction. The die() below is for a data drop that manages to
+        # collide even that.
+        captions = {_edition_caption(r) for r in group}
+        if len(captions) != len(group):
+            for record in group:
+                record["edition_caption_code"] = True
+            if len({r["code"] for r in group}) != len(group):
+                die(f"editions of {group[0]['name']!r} share a code: "
+                    f"{[r['code'] for r in group]}")
+
+        for edition in group[1:]:
+            edition["edition_of"] = group[0]["code"]
         found += 1
 
     return found
@@ -1691,7 +1698,7 @@ def report_diff(previous: dict, current: dict) -> None:
     line("sheets", "sheets")
     line("crops", "images")
     line("cards", "cards")
-    line("printings", "printings")
+    line("editions", "editions")
     line("decks", "decks")
     line("set aside", "set_aside")
     line("unmatched", "unmatched")
@@ -1839,7 +1846,7 @@ def main() -> int:
                 stray.unlink()
 
     with_art = sum(1 for r in records if r.get("front_image"))
-    printings = {r["variant_of"] for r in records if r.get("variant_of")}
+    editions = {r["edition_of"] for r in records if r.get("edition_of")}
     set_aside = sum(len(deck["set_aside"]) for deck in decks)
     log(f"  cards.json  {len(records)} cards, {with_art} with art")
     log(f"  decks.json  {len(decks)} decks, {set_aside} cards set aside")
@@ -1850,7 +1857,7 @@ def main() -> int:
         "sheets": len(grids),
         "images": len(crops),
         "cards": len(records),
-        "printings": len(printings),
+        "editions": len(editions),
         "decks": len(decks),
         "set_aside": set_aside,
         "unmatched": len(result.unmatched),

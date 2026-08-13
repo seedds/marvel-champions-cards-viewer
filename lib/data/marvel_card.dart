@@ -27,7 +27,8 @@ class MarvelCard {
     this.frontImage,
     this.backImage,
     this.backLink,
-    this.variantOf,
+    this.editionOf,
+    this.editionCaptionCode = false,
     this.backName,
     this.backText,
     this.doubleSided = false,
@@ -89,12 +90,17 @@ class MarvelCard {
   /// Points *forward*, from the front of a two-sided card to its back.
   final String? backLink;
 
-  /// The first printing of this card, when this record is a later reprint of it.
+  /// The first card sharing this one's name and type, when this record is a later one.
   ///
-  /// Set by `tools/build_assets.py`, which joins printings by what is printed on them;
-  /// nothing upstream links them. Null on a card printed once and on the first printing
-  /// of one printed several times, so the root of a group points at nothing.
-  final String? variantOf;
+  /// Set by `tools/build_assets.py`, which groups cards by name and type; nothing
+  /// upstream links them. Null on a card whose name and type are unique and on the
+  /// first of a group, so the root of a group points at nothing.
+  final String? editionOf;
+
+  /// True when this card's editions cannot be told apart by set, printed number, stage
+  /// and resource pips, so the picker has to caption them with their codes instead.
+  /// Four groups: Android Efficiency, Ant-Man, Wasp and Apocalypse.
+  final bool editionCaptionCode;
 
   /// The one card whose back is carried on its own record rather than a linked one.
   final String? backName;
@@ -133,6 +139,18 @@ class MarvelCard {
   final int? resourceMental;
   final int? resourceEnergy;
   final int? resourceWild;
+
+  /// The resource pips printed on this card, named as `ui/card_text.dart` names them.
+  ///
+  /// A card prints at most one of each but can print two -- Jubilee's Plasmoid Energy
+  /// is energy and mental. This is what separates the editions of Wakanda Forever!,
+  /// whose five records agree on set and printed number and differ only by the pip.
+  List<String> get resources => [
+        if (resourcePhysical != null) 'physical',
+        if (resourceMental != null) 'mental',
+        if (resourceEnergy != null) 'energy',
+        if (resourceWild != null) 'wild',
+      ];
 
   /// Stats whose printed value carries a star qualifier, by field name. `Charge` has
   /// an attack of 3 and a starred attack, and the star changes what the number means.
@@ -175,7 +193,8 @@ class MarvelCard {
       frontImage: json['front_image'] as String?,
       backImage: json['back_image'] as String?,
       backLink: json['back_link'] as String?,
-      variantOf: json['variant_of'] as String?,
+      editionOf: json['edition_of'] as String?,
+      editionCaptionCode: json['edition_caption_code'] as bool? ?? false,
       backName: json['back_name'] as String?,
       backText: json['back_text'] as String?,
       doubleSided: json['double_sided'] as bool? ?? false,
