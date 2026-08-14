@@ -57,6 +57,19 @@ void main() {
         (widget) => widget is CardText && widget.text == markup,
       );
 
+  /// The whole of a card row's second line, as one flat string.
+  ///
+  /// The line is a [Text.rich] of two spans -- what the card is, in its aspect's
+  /// colour, then where it was printed, in the quiet one -- so `data` is null and
+  /// `find.text` cannot see any of it. `toPlainText` puts the spans back together.
+  List<String> rowSubtitles(WidgetTester tester) => [
+        for (final text in tester.widgetList<Text>(find.descendant(
+          of: find.byType(CardRow),
+          matching: find.byType(Text),
+        )))
+          if (text.textSpan case final InlineSpan span) span.toPlainText(),
+      ];
+
   Future<void> openFirstResult(WidgetTester tester) async {
     await tester.tap(find.byType(CardRow).first);
     await tester.pumpAndSettle();
@@ -93,6 +106,26 @@ void main() {
       expect(image.cacheWidth, isNotNull, reason: '${image.asset} decodes unresized');
       expect(image.cacheWidth, lessThan(300), reason: image.asset);
     }
+  });
+
+  testWidgets('a row says what the card is and where it is from', (tester) async {
+    await boot(tester);
+
+    // 01003 Backflip: an event with two traits, third in the Spider-Man pack. The type
+    // and traits are the aspect's colour, the set and number the quiet caption one, on
+    // one line that ellipsizes from the right.
+    expect(
+      rowSubtitles(tester),
+      contains('Event  \u2014  Defense \u00b7 Skill  \u2014  Spider-Man  \u00b7  #3'),
+    );
+  });
+
+  testWidgets('a card in no set is placed by its pack', (tester) async {
+    await boot(tester);
+    // 750 of the 3,632 cards belong to no encounter set. A row with a blank where the
+    // set should be would look like missing data, so the pack stands in.
+    await search(tester, 'psychic misdirection');
+    expect(rowSubtitles(tester).single, endsWith('Phoenix  \u00b7  #33'));
   });
 
   testWidgets('a two-sided card flips to its other side', (tester) async {
@@ -464,6 +497,124 @@ void main() {
 
     await search(tester, '');
     expect(find.text('3632 cards'), findsOneWidget);
+  });
+
+  group('sorting', () {
+    Future<void> sortBy(WidgetTester tester, String order) async {
+      await tester.tap(button(sortIcon));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(order));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('sort leads the bar and filter trails it', (tester) async {
+      await boot(tester);
+
+      // The two do different jobs -- one reorders every card, the other takes cards
+      // away -- and sit at opposite ends of the bar to say so. Asserted by geometry
+      // because every other test here finds them by icon, which passes whichever end
+      // they are at.
+      final sort = tester.getRect(button(sortIcon));
+      final filter = tester.getRect(button(filterIcon));
+      // The bar's own title, not the tab bar's label -- both read "Cards".
+      final title = tester.getRect(find.descendant(
+        of: find.byType(CupertinoNavigationBar),
+        matching: find.text('Cards'),
+      ));
+
+      expect(sort.right, lessThan(title.left), reason: 'sort is left of the title');
+      expect(filter.left, greaterThan(title.right), reason: 'filter is right of it');
+      expect(sort.left, lessThan(60), reason: 'against the leading edge, not adrift');
+    });
+
+    testWidgets('the sheet offers the orders, with the current one ticked',
+        (tester) async {
+      await boot(tester);
+      await tester.tap(button(sortIcon));
+      await tester.pumpAndSettle();
+
+      for (final order in ['Release order', 'Name', 'Cost', 'Type', 'Aspect']) {
+        expect(find.text(order), findsOneWidget, reason: order);
+      }
+      expect(find.text('Cancel'), findsOneWidget);
+      // The tick says which order is in force, so the sheet answers the question as
+      // well as changing the answer.
+      expect(
+        find.descendant(
+          of: find.byType(CupertinoActionSheet),
+          matching: find.byIcon(CupertinoIcons.checkmark),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('choosing name reorders the list', (tester) async {
+      await boot(tester);
+      // Release order opens with 01001a Spider-Man.
+      expect(find.text('Spider-Man'), findsWidgets);
+
+      await sortBy(tester, 'Name');
+
+      // 616 Hickory Branch Lane: digits fold to themselves, so it sorts above every
+      // letter. The rows are a fixed extent from the top of the list, so the first one
+      // is whatever is nearest the search field.
+      expect(find.text('616 Hickory Branch Lane'), findsOneWidget);
+      // The count says what the order is, since nothing else on screen would.
+      expect(find.text('3632 cards  \u00b7  by name'), findsOneWidget);
+    });
+
+    testWidgets('the default order says nothing about itself', (tester) async {
+      await boot(tester);
+      // Release order is what a person gets without asking, so the line is the count
+      // alone -- not "3632 cards · by release order" on every visit.
+      expect(find.text('3632 cards'), findsOneWidget);
+
+      await sortBy(tester, 'Name');
+      expect(find.text('3632 cards'), findsNothing);
+
+      await sortBy(tester, 'Release order');
+      expect(find.text('3632 cards'), findsOneWidget);
+    });
+
+    testWidgets('cancelling leaves the order alone', (tester) async {
+      await boot(tester);
+      await sortBy(tester, 'Name');
+      expect(find.text('3632 cards  \u00b7  by name'), findsOneWidget);
+
+      await tester.tap(button(sortIcon));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('3632 cards  \u00b7  by name'), findsOneWidget);
+    });
+
+    testWidgets('the order survives a search and applies to what it finds',
+        (tester) async {
+      await boot(tester);
+      await sortBy(tester, 'Name');
+      await search(tester, 'hydra');
+
+      // Sorting is the last stage, so it orders the matches rather than the whole
+      // collection -- and the order outlives the query being typed.
+      expect(find.text('3632 cards  \u00b7  by name'), findsNothing);
+      expect(find.textContaining('by name'), findsOneWidget);
+      expect(find.byType(CardRow), findsAny);
+    });
+
+    // A swipe on the detail screen walks the list that was on screen, which is the
+    // sorted one -- not release order underneath it.
+    testWidgets('a swipe walks the sorted order', (tester) async {
+      await boot(tester);
+      await sortBy(tester, 'Name');
+      await tester.tap(find.text('616 Hickory Branch Lane'));
+      await tester.pumpAndSettle();
+
+      await tester.fling(find.byType(PageView), const Offset(-400, 0), 1000);
+      await tester.pumpAndSettle();
+      expect(find.text('Aamir Khan'), findsWidgets,
+          reason: 'the next card by name, not the next one by release order');
+    });
   });
 
   testWidgets('the filter sheet offers the facets', (tester) async {

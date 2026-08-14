@@ -12,7 +12,7 @@ python tools/build_assets.py            # rebuild assets
 python tools/build_assets.py --dry-run  # report, change nothing
 
 flutter analyze                                   # must be clean
-flutter test                                      # data, text and the screens. 93 tests, ~7s
+flutter test                                      # data, text and the screens. 117 tests, ~9s
 flutter test integration_test -d <simulator-id>   # the memory ceiling only, on a device
 flutter run -d <simulator-id>
 ```
@@ -200,6 +200,9 @@ ignoring them.
 | A Cupertino bar takes its own space, like an `AppBar` | Neither bar does. Both are translucent and content scrolls behind them, so every list needs `listInsets` at both ends. A Material `AppBar` and `NavigationBar` were opaque, which is why nothing needed this before. |
 | iOS has a tooltip | It does not, and `Tooltip` is Material's. The flip and filter buttons carried `tooltip:` both as the label and as the handle their tests found them by; they now carry `Semantics(label:)` and are found by icon. |
 | A `CupertinoNavigationBar` has a `bottom` like an `AppBar` | The static one does not — only `CupertinoSliverNavigationBar` does. A deck's card count moved to a strip below the bar instead. |
+| `List.sort` keeps equal elements in the order it found them | It does not — it is an unstable quicksort. Every `CardSort` but release sorts on a key thousands of cards share, so each comparator ends on `CardRepository.releaseOrder`. Without it a sorted list reshuffles between two frames that asked the same question. |
+| A card with no printed cost costs nothing | 2,174 of the 3,632 print no cost at all and 233 genuinely cost 0, which is why `cost` is nullable. Sorting the first as the second buries the 233 under seven times their number. A third band sits between them: six cards print a literal **X**, which upstream spells as `-1`. |
+| `find.text` can see a card row's second line | It cannot. The line is a `Text.rich` of two differently-coloured spans, so `data` is null and only `textSpan.toPlainText()` gets it back — the same wrinkle as the edition captions, which are `CardText`. |
 
 ## The pre-built decks
 
@@ -307,8 +310,9 @@ only prose. That is also why `ThemeMode` is not used for the theme setting: it i
 declared in Material, and `data/settings.dart` has its own `AppTheme` instead.
 
 Three tabs. **Cards** is a browser over `cards.json` — one card per row, a search field
-under the nav bar, a filter sheet, and a detail screen that swipes between cards, flips a
-two-sided one, and picks between the editions of a card printed more than once.
+under the nav bar, a filter sheet, a sort sheet, and a detail screen that swipes between
+cards, flips a two-sided one, and picks between the editions of a card printed more than
+once.
 **Decks** is the 67 hero packs from `decks.json`, each the 40-card pre-built deck with
 the aspects it is built from, and, under a heading of its own, the cards set aside
 beside it. **Settings** is the
@@ -319,7 +323,7 @@ changes after it loads, so a `CardRepository` behind an `InheritedWidget` is the
 it. `path_provider` is the only third-party dependency, and only so that the theme
 choice has somewhere to live.
 
-Five facts decide the shape of everything else.
+Six facts decide the shape of everything else.
 
 **A record is not always a card.** 324 of the 3,956 records are the *back* of another
 card, so browsing shows **3,632** entries. A record is a back when something links *to*
@@ -345,11 +349,22 @@ two-sided gaps have neither side scanned, because that is the state of one TTS s
 not a rule.
 
 **A row is two lines and 48.6pt.** The thumbnail is 28pt wide and sets the height; the
-name and the type-and-traits line fit inside it. `CardRow.extent` is that arithmetic,
+name and the line under it fit inside it. That second line is one `Text.rich` of two
+spans — the type and traits in the aspect's colour, then the set and printed number in
+the quiet caption one — so that the two share a single ellipsis and the provenance is
+what gives way when a trait list is long. `CardRow.extent` is that arithmetic,
 and the list's `itemExtent` reads it rather than restating it — a fixed extent is what
 lets a 3,632-row list jump to an offset instead of measuring its way there. This is why
 `CardRow` is not a `CupertinoListTile`: the tile's own minimum height and padding would
 take both the extent and the 28pt thumbnail with them.
+
+**Release order is free and every other order is not.** `cards.json` is written in
+release order and `browsable` preserves it, so the default sorts nothing: `CardSort.release`
+hands the list straight back, identical. The other four decorate-sort-undecorate, and each
+one **must** break ties on release order — `List.sort` is an unstable quicksort and 2,174
+cards share "no printed cost", so without the tiebreak the list reshuffles under the
+reader between two identical frames. Search, then filter, then sort, so the order only
+ever handles what survived.
 
 **Both bars are translucent, so a list has to make room for them.** A Cupertino nav bar
 and tab bar are blurred glass that content scrolls *behind*, where Material's `AppBar`
@@ -364,6 +379,7 @@ subtle-but-harmless: a row under the nav bar's blur cannot be tapped at all.
 | `data/card_filter.dart` | Facets, and splitting a trait line without shredding `S.H.I.E.L.D.` |
 | `data/deck.dart` | One hero pack, transcribed: the 40-card deck, the aspects it is built from, and the cards set aside beside it. Its hero is never among either. |
 | `data/settings.dart` | The theme choice, and the JSON file it lives in. |
+| `ui/card_sort.dart` | The five orders the browse list can be in, and the release-order tiebreak every one of them needs. Under `ui/` because two of them sort by the label on the screen, not the code beneath it. |
 | `ui/card_text.dart` | `<b>`, `<i>` and the 46 `[icon]` tokens. |
 | `ui/theme.dart` | The theme the chosen setting resolves to, `listInsets` for the translucent bars, the three named text sizes, and the aspect colours — including the darkened variant that keeps an aspect legible as text on a light background. |
 

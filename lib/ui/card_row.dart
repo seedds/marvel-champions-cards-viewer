@@ -4,11 +4,11 @@ import '../data/card_filter.dart';
 import '../data/marvel_card.dart';
 import 'theme.dart';
 
-/// One card per row: its art in miniature, then what the card is.
+/// One card per row: its art in miniature, then what the card is and where it is from.
 ///
 /// Two lines, because the row's job is to be scanned past. The name says which card
-/// this is and the type line says what it does; the pack, the cost and the rest are on
-/// the detail screen, one tap away.
+/// this is; the line under it says what the card does and which set it was printed in.
+/// The cost, the stats and the text are on the detail screen, one tap away.
 ///
 /// The thumbnail is [thumbnailWidth] logical pixels against a scan of 710, so it
 /// decodes at a fraction of native size. A list that decoded these at full size would
@@ -104,17 +104,32 @@ class _CardRowState extends State<CardRow> {
                         ),
                     ],
                   ),
-                  Text(
-                    [
-                      typeLabel(card.typeCode),
-                      if (traits.isNotEmpty) traits.join(' \u00b7 '),
-                    ].join('  \u2014  '),
+                  // One line, two voices: what the card is, in its aspect's colour,
+                  // then where it was printed, in the quiet caption colour. The
+                  // provenance in the aspect colour at w600 would read as another
+                  // trait. One Text.rich rather than a Row, so the two share the
+                  // line's ellipsis: the traits give way before they collide.
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: [
+                            typeLabel(card.typeCode),
+                            if (traits.isNotEmpty) traits.join(' \u00b7 '),
+                          ].join('  \u2014  '),
+                          style: rowCaptionStyle(context).copyWith(
+                            color: aspectTextColour(card.factionCode, brightness),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        TextSpan(
+                          text: '  \u2014  ${rowProvenance(card)}',
+                          style: rowCaptionStyle(context),
+                        ),
+                      ],
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: rowCaptionStyle(context).copyWith(
-                      color: aspectTextColour(card.factionCode, brightness),
-                      fontWeight: FontWeight.w600,
-                    ),
                   ),
                 ],
               ),
@@ -125,6 +140,15 @@ class _CardRowState extends State<CardRow> {
     );
   }
 }
+
+/// Where a card was printed, as a row says it: the set, or the pack for the 750 cards
+/// in no set, and the number printed on the card.
+///
+/// The same two facts, spelled the same way, that `_editionCaption` in
+/// `card_detail_screen.dart` opens with -- a card's provenance should not read
+/// differently depending on which screen is showing it.
+String rowProvenance(MarvelCard card) =>
+    '${card.setName ?? card.packName}  \u00b7  #${card.position}';
 
 /// A card's art in miniature, decoded at the size it is drawn.
 class CardThumbnail extends StatelessWidget {

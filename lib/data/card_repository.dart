@@ -152,11 +152,17 @@ class CardRepository {
         if (_byCode[entry.key] case final MarvelCard card)
           (card: card, quantity: entry.value),
     ];
-    cards.sort((a, b) => _releaseOrder(a.card, b.card));
+    cards.sort((a, b) => releaseOrder(a.card, b.card));
     return cards;
   }
 
-  static int _releaseOrder(MarvelCard a, MarvelCard b) {
+  /// The order the game printed two cards in: pack, then position within the pack,
+  /// then the code, so that the answer is total and never depends on the input order.
+  ///
+  /// [browsable] is already in this order -- `assets/cards.json` is written sorted --
+  /// so nothing sorts to get it. It is public because every *other* order needs it as
+  /// a tiebreak, and release order is worth having one definition of.
+  static int releaseOrder(MarvelCard a, MarvelCard b) {
     for (var i = 0; i < a.sortKey.length && i < b.sortKey.length; i++) {
       final difference = a.sortKey[i].compareTo(b.sortKey[i]);
       if (difference != 0) return difference;

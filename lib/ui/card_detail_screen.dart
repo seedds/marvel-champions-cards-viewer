@@ -426,8 +426,9 @@ class _Editions extends StatelessWidget {
 /// is printed on the card, and it is unique by construction.
 String _editionCaption(MarvelCard card) {
   return [
-    card.setName ?? card.packName,
-    '#${card.position}',
+    // The set and number a browse row already shows, so that the card a person tapped
+    // is recognisable in the list of editions they land in.
+    rowProvenance(card),
     if (card.stage != null) 'Stage ${card.stage}',
     // Rendered by CardText as the same lozenge the card's own text uses.
     if (card.resources.isNotEmpty)
