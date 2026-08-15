@@ -5,14 +5,17 @@ are bundled as assets; the app never reaches the network to show a card.
 
 ## Commands
 
-Run the script with a Python 3.12 that has Pillow; a virtualenv is the usual way.
+Run the script with a Python 3.12 that has Pillow and `ocrmac`; a virtualenv is the
+usual way. `ocrmac` wraps macOS Vision and is what reads a scan's printed collector
+number — see "Printings". It is imported only when a number has to be read, so
+`--skip-images` and a cached re-run do not need it.
 
 ```sh
 python tools/build_assets.py            # rebuild assets
 python tools/build_assets.py --dry-run  # report, change nothing
 
 flutter analyze                                   # must be clean
-flutter test                                      # data, text and the screens. 117 tests, ~9s
+flutter test                                      # data, text and the screens. 128 tests, ~11s
 flutter test integration_test -d <simulator-id>   # the memory ceiling only, on a device
 flutter run -d <simulator-id>
 ```
@@ -78,11 +81,12 @@ rewrites nothing.
 
 ## Coverage
 
-3,903 of 3,956 cards have art. Of the 53 without:
+3,907 of 3,956 cards have art, over 4,716 images — a card with several printings has
+one image per printing. Of the 49 without:
 
 - **4** are another side or printing of a card that does have art — an alternate
   artwork, or a printing the community scanned once.
-- **49** have no scan anywhere under their code: the six Kang printings, the ten
+- **45** have no scan anywhere under their code: the six Kang printings, the ten
   Magneto cards, the five Hercules All Versus All cards, the five Ronan cards, the four
   Civil War Vision leaders, and singletons.
 
@@ -120,6 +124,62 @@ and the alter-ego portrait `01040b` wore Shuri's T'Challa **ally**. The five new
 had nothing. A bag named for a hero holds that hero's printing; where the name cannot
 say so the printed quantity does, the Hero Set bag holding Vibranium twice where Core's
 `01044` is three. Fixing it also emptied the last cross-set slots out of `decks.json`.
+
+## Printings: the copies of one card
+
+A box that prints three copies of a card does not print three identical cards. It prints
+three **collector numbers** — Photonic Blast is `CAPTAIN MARVEL 5/15`, `6/15` and `7/15`
+— and the community scanned each copy separately. marvelsdb has no room for this: one
+code, one record, `quantity: 3`. So three scans arrived under one code, wrote one
+filename, and the last crop won.
+
+**This was silent for five builds.** Nothing downstream can see it: the surviving file is
+a correct picture of the right card, and the other two copies simply never existed. 1,031
+of the save's 4,621 face cells were being cropped and discarded this way, across about
+760 cards. Photonic Blast shipped 5/15 and threw away 6/15 and 7/15.
+
+653 cards now carry a `printings` list, 1,459 images in all — 529 printed twice, 100
+three times, 21 four times, and Hydra Soldier six. A card printed once carries no list
+at all rather than a list of one, so no caller has to special-case the common case, and
+`printings.first.image` is always `front_image`.
+
+**The number is read off the scan, not derived.** `set_position` plus the cell's rank
+gives the right answer for 621 of 633 measured groups, and the twelve it misses are the
+reason not to use it:
+
+| Trap | Reality |
+| --- | --- |
+| The rank comes from sorting the cells | Cells sort by URL, and a Steam URL is `/ugc/<id>/<hash>/` whose id rises with upload time. All 152 cross-sheet groups order correctly today because the sheets were uploaded roughly in printing order. Sorting on the hash instead is a coin toss — 96 of 152 measured — so a re-scan, which mints a new id, reorders them silently. |
+| A card's copies run consecutively from `set_position` | Groot's `16003` is printed 4/15 and 6/15 and `16004` is 3/15 and 5/15: the two cards' copies interleave. Trickster Magic's four villains are printed in two halves, 1/11 and 8/11. |
+| `set_position` is right | Civil War's Captain Marvel set is off by one throughout — `56101` reads 8/14 and 9/14 where upstream says 9 — and `56103` reads two numbers with `quantity: 1`. The card in the picture wins. |
+
+OCR is macOS Vision via `ocrmac`, on the bottom tenth of the cell, enlarged 4×. The
+**full width** is read: cropping in from the left clipped the leading digit of a
+two-digit number, turning 15/16 into 5/16 — a misread that still parses, and so would
+have reordered a card's printings without complaint. Answers are cached per cell in
+`.cache/numbers.json`, so a no-change re-run stays at 0.4 seconds and an update reads
+only the cells of the sheets it fetched.
+
+A group becomes printings only when **every** cell reads a number, they all name the
+same set, and they are all different. Each condition is a real case in the save:
+
+- 46 multi-copy cards print no number at all — the Core Set's shared aspect pool, whose
+  banner says `BASIC` and nothing else. Nothing to read, and nothing a picker could
+  caption, so these keep one picture.
+- 21 codes are reached from cells whose denominators *differ*: Magneto's Helmet is both
+  13/30 and 2/15. Those are two printings that should have had two codes, and calling
+  them copies would paper over the overwrite.
+- A repeated number is one printing scanned twice, which is Civil War's two Targeted
+  Strike bags holding the same card.
+
+**Reading the numbers found a bug the count could not.** Trickster Magic prints each of
+its four villains twice — as a minion in the encounter set, `55056`–`55059`, and as the
+ally you get for defeating it, `55063`–`55066`. Same name, one bag, and only the ordinal
+between them, so all eight scans went to the four minion codes and the four allies had no
+art. What gave it away was a minion code claiming two cells numbered 1/11 and 8/11: a
+card cannot be printed at two positions in one set. This is the same failure as `01044`
+and `01047`, and it is the first one a *rule* caught rather than a person noticing a
+wrong picture.
 
 ## Matching scans to cards
 
@@ -162,7 +222,8 @@ ignoring them.
 | `CardID // 100` gives the sheet | It does not, for 473 of 4,838 objects. Read the key from the object's `CustomDeck`, which is what TTS uses. |
 | A card's `BackURL` is its back | When `UniqueBack` is true (211 objects) it is a second sheet with the same grid and index. Otherwise it is *usually* one card back shared by a whole deck, and cropping it yields thousands of identical files. |
 | So a false `UniqueBack` means there is no back art | It does not, for 132 sheets, and reading the flag alone cost 124 cards their picture — every main scheme's second stage and every alter-ego's portrait. Group the non-unique `BackURL`s by how many distinct face cells share each: 132 sheets have **one**, five have 3–6, eight have 161–1,023, and nothing lands in between. The 132 are each a single card's own back with the flag simply wrong. The rule is that gap's low end — a 1×1 sheet reached by exactly one face cell — and both halves are load-bearing: the four aspect trackers are 1×1 whose "back" is their own face sheet again, and the 3–6 band is genuinely shared backs. |
-| Several objects with one name are several cards | Usually they are copies of one card. They are told apart by sheet cell, not by count: three copies point at one cell, a villain's three stages at three. |
+| Several objects with one name are several cards | Usually they are copies of one card — but they are *not* one picture. A box's three copies carry three different collector numbers and the community scanned each, so three objects mean three cells and three crops. See "Printings". |
+| So a name's objects can be counted to get the copies | Only after the cells are deduplicated: one card is often listed in several bags. Group by cell, and the cell count equals the printed `quantity` — which is how the four Trickster Magic allies were found, each sharing a code with the minion of the same name. |
 | Two bags named for one hero hold one hero | `Spider-Man Hero Pack` is Miles Morales, whom Sinister Motives printed as plain "Spider-Man"; `Spider-Man (Peter Parker) Hero Pack` is Peter. Both objects are called `Spider-Man`, so nothing but the bag tells them apart. |
 | A card the save keeps as a state is not a card | Ant-Man and Wasp each have a tiny and a giant hero form, held as alternate states of the alter-ego object rather than as cards. All four are real cards with real scans, on the same sheet as their alter-egos. The letter in the corner names the form: `1A` tiny, `1C` giant. |
 | A code collision loses a card | It does not — it is worse. Two scans on one code share a filename, the last crop written wins, and the loser ends up *showing the winner's art*. Nothing downstream can see this, so `plan_crops` fails the build when an override lands on a code another cell already fills. |
@@ -311,8 +372,8 @@ declared in Material, and `data/settings.dart` has its own `AppTheme` instead.
 
 Three tabs. **Cards** is a browser over `cards.json` — one card per row, a search field
 under the nav bar, a filter sheet, a sort sheet, and a detail screen that swipes between
-cards, flips a two-sided one, and picks between the editions of a card printed more than
-once.
+cards, flips a two-sided one, picks between the editions of a card printed more than
+once, and picks between the copies of a card the box holds several of.
 **Decks** is the 67 hero packs from `decks.json`, each the 40-card pre-built deck with
 the aspects it is built from, and, under a heading of its own, the cards set aside
 beside it. **Settings** is the
@@ -342,7 +403,7 @@ decode size was ever set — green, and proving nothing.
 
 **A scan is the card, and its absence is not a hole.** Everything the heading, stats and
 text would say is already printed on the picture, so a scanned side shows the picture
-alone. The 53 fronts and 5 backs with no scan show that text *in the picture's place*,
+alone. The 44 fronts and 5 backs with no scan show that text *in the picture's place*,
 with nothing above it: a box saying "not scanned" is a card's height of dead space above
 the only information there is. The choice stays per side even though the five remaining
 two-sided gaps have neither side scanned, because that is the state of one TTS save and
@@ -405,12 +466,12 @@ subtle-but-harmless: a row under the nav bar's blur cannot be tapped at all.
 2665262903.json              the TTS save, replaced on update
 tools/
   build_assets.py            the pipeline
-  card_overrides.json        171 hand-resolved scans, with the reasoning
+  card_overrides.json        179 hand-resolved scans, with the reasoning
   precon_overrides.json      9 decks the printed order cannot give, with the reasoning
 assets/
   cards.json                 committed
   decks.json                 committed
-  CardImages/*.webp          gitignored, ~780 MB, rebuilt by the script
+  CardImages/*.webp          gitignored, ~950 MB, rebuilt by the script
 lib/                         the app: data/ then ui/
 test/                        data and text rules, and the screens, against the real
                              cards.json and the real art. Headless.
@@ -420,6 +481,7 @@ integration_test/            the memory ceiling, which needs a real device
   sheets/                    ~9.2 GB sheet cache; this is what makes updates cheap
   manifest.json              what was built, from what
   crops.csv                  one row per image, for when a card's picture is wrong
+  numbers.json               a collector number per contested cell, so OCR runs once
   unmatched.json             the review file, written only when matching fails
   review/                    cropped images of unmatched scans
 ```

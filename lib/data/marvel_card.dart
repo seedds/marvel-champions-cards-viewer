@@ -26,6 +26,7 @@ class MarvelCard {
     this.setPosition,
     this.frontImage,
     this.backImage,
+    this.printings = const [],
     this.backLink,
     this.editionOf,
     this.editionCaptionCode = false,
@@ -86,6 +87,20 @@ class MarvelCard {
 
   final String? frontImage;
   final String? backImage;
+
+  /// Every printing of this card the scans cover, when the box holds more than one.
+  ///
+  /// A box printing three copies of a card prints three *different* collector numbers
+  /// on them, and the community scanned each copy separately -- so one record can have
+  /// three pictures that differ only in the number in the corner. Empty for the great
+  /// majority of cards, which have one printing; never one entry long. The first is
+  /// always the same file as [frontImage], so a caller that ignores this field still
+  /// shows the card.
+  ///
+  /// This is deliberately not [editionOf]: those are different cards that share a name,
+  /// and each has its own record and its own row in the browse list. These are one card,
+  /// one record, one row, and several pictures.
+  final List<CardPrinting> printings;
 
   /// Points *forward*, from the front of a two-sided card to its back.
   final String? backLink;
@@ -192,6 +207,10 @@ class MarvelCard {
       landscape: json['landscape'] as bool,
       frontImage: json['front_image'] as String?,
       backImage: json['back_image'] as String?,
+      printings: [
+        for (final printing in (json['printings'] as List? ?? const []))
+          CardPrinting.fromJson(printing as Map<String, dynamic>),
+      ],
       backLink: json['back_link'] as String?,
       editionOf: json['edition_of'] as String?,
       editionCaptionCode: json['edition_caption_code'] as bool? ?? false,
@@ -225,4 +244,23 @@ class MarvelCard {
       statPrintedBlank: blank,
     );
   }
+}
+
+/// One physical copy of a card as the box prints it, and the scan of that copy.
+///
+/// The [number] is the collector number printed in the card's bottom corner -- the 5 of
+/// "CAPTAIN MARVEL 5/15" -- which is the only thing separating a box's three copies of
+/// one card. The build script reads it off the scan rather than deriving it, because
+/// upstream's `set_position` is wrong for a handful of sets and the copies of two of
+/// Groot's cards interleave rather than run consecutively.
+class CardPrinting {
+  const CardPrinting({required this.number, required this.image});
+
+  final int number;
+  final String image;
+
+  factory CardPrinting.fromJson(Map<String, dynamic> json) => CardPrinting(
+        number: json['number'] as int,
+        image: json['image'] as String,
+      );
 }

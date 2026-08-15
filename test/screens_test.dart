@@ -454,6 +454,79 @@ void main() {
     );
   });
 
+  // The box holds three Photonic Blast, printed 5/15, 6/15 and 7/15. They are one card
+  // and one row in the browse list; the detail screen is where the three pictures are.
+  group('printings', () {
+    Finder segment(String label) => find.text(label);
+
+    testWidgets('a card printed several times offers its printings', (tester) async {
+      await boot(tester);
+      await search(tester, 'photonic blast');
+      await openFirstResult(tester);
+
+      for (final number in ['5', '6', '7']) {
+        expect(segment(number), findsOneWidget, reason: 'printing $number');
+      }
+    });
+
+    testWidgets('choosing a printing changes the picture', (tester) async {
+      await boot(tester);
+      await search(tester, 'photonic blast');
+      await openFirstResult(tester);
+
+      bool showing(String file) => imagesOnScreen(tester)
+          .any((image) => image.asset.endsWith('/$file'));
+
+      expect(showing('01013.webp'), isTrue, reason: 'the first printing, 5/15');
+
+      await tester.tap(segment('7'));
+      await tester.pumpAndSettle();
+
+      expect(showing('01013-7.webp'), isTrue, reason: '7/15 after choosing it');
+      expect(showing('01013.webp'), isFalse, reason: '5/15 is no longer drawn');
+    });
+
+    testWidgets('a card printed once offers no printing picker', (tester) async {
+      await boot(tester);
+      // Alpha Flight Station is quantity 1, so there is nothing to choose between.
+      await search(tester, 'alpha flight station');
+      await openFirstResult(tester);
+
+      expect(find.byType(CupertinoSlidingSegmentedControl<int>), findsNothing);
+    });
+
+    testWidgets('swiping to another card forgets the chosen printing',
+        (tester) async {
+      await boot(tester);
+      await search(tester, 'photonic blast');
+      await openFirstResult(tester);
+
+      await tester.tap(segment('7'));
+      await tester.pumpAndSettle();
+      await tester.fling(find.byType(PageView), const Offset(-400, 0), 1000);
+      await tester.pumpAndSettle();
+      await tester.fling(find.byType(PageView), const Offset(400, 0), 1000);
+      await tester.pumpAndSettle();
+
+      // Back at Photonic Blast, showing its first printing rather than the seventh.
+      expect(
+        imagesOnScreen(tester).any((i) => i.asset.endsWith('/01013.webp')),
+        isTrue,
+      );
+    });
+
+    testWidgets('the printings of one card are not editions of it', (tester) async {
+      await boot(tester);
+      await search(tester, 'photonic blast');
+      await openFirstResult(tester);
+
+      // Two records share the name -- the Core Set event and Civil War's treachery --
+      // and they are different types, so they are not editions of each other either.
+      // What must not happen is the three copies appearing as three rows.
+      expect(find.text('3 editions'), findsNothing);
+    });
+  });
+
   testWidgets('a one-sided card offers no flip', (tester) async {
     await boot(tester);
     await search(tester, 'backflip');

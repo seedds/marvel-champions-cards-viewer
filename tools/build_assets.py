@@ -943,6 +943,7 @@ def plan_crops(
     codes: dict[str, str],
     grids: dict[str, tuple[int, int]],
     two_sided: set[str],
+    numbers: dict[str, list[int] | None],
 ) -> tuple[list[Crop], dict[str, dict[str, str | bool]]]:
     """Decide which cell becomes which file.
 
@@ -951,6 +952,12 @@ def plan_crops(
     physical copy and often in several bags, so cells are deduplicated here; the same
     cell always holds the same card, which is checked rather than assumed.
 
+    A card is scanned once per *printing*, not once: the save holds a cell for each
+    physical copy in the box, and a box's three copies of one card carry three different
+    collector numbers. Where those numbers can be read, every printing is cropped and
+    the card gains a `printings` list; where they cannot, one picture stands for the
+    card as before. See `_printings`.
+
     [two_sided] is every code marvelsdb gives a second side, and is what a back scan is
     checked against: a scan of a back belonging to a card upstream calls one-sided is
     one of the two halves disagreeing, and the build stops rather than guess which.
@@ -958,6 +965,10 @@ def plan_crops(
     crops: dict[str, Crop] = {}
     images: dict[str, dict[str, str | bool]] = {}
     claimed: dict[tuple[str, int], str] = {}
+    # A code reached from two different cells is either a card scanned once per printing
+    # or two cards competing for one filename. Collecting the cells per code first is
+    # what lets the two be told apart, rather than the last crop written silently
+    # winning and the loser wearing its art.
     names: dict[str, dict[tuple[str, int], TTSCard]] = {}
 
     for card in tts_cards:
@@ -972,32 +983,81 @@ def plan_crops(
                 f"by both {owner} and {code} (at {card.key})"
             )
 
-        # A code reached from two different cells means two pictures are competing for
-        # one filename, and the last write wins. The loser is not left blank -- it is
-        # left showing the winner's art, which nothing downstream can detect. Copies of
-        # one card share a cell and are fine; distinct cells are two cards.
-        seen = names.setdefault(code, {})
-        seen.setdefault(card.face_cell, card)
+        names.setdefault(code, {}).setdefault(card.face_cell, card)
 
+    for code, by_cell in names.items():
+        ordered = _printings(by_cell, numbers)
         sides = images.setdefault(code, {})
+
+        front_cell, front_card, _ = ordered[0]
         sides["front_image"] = _add_crop(
-            crops, card.face_cell, grids, f"{code}.webp", card.sideways
+            crops, front_cell, grids, f"{code}.webp", front_card.sideways
         )
         # marvelsdb does not record orientation and type_code does not imply it -- four
         # attachments and a handful of others are printed sideways, one side scheme is
         # not. The save's flag is the only source, so it is carried to the app, which
         # needs it to size a grid cell before the image has decoded.
-        sides["landscape"] = card.sideways
+        sides["landscape"] = front_card.sideways
 
-        back = card.back_cell
-        if back is not None and code not in BACK_SCAN_IS_NOT_A_CARD:
-            sides["back_image"] = _add_crop(
-                crops, back, grids, f"{code}b.webp", card.sideways
-            )
+        if len(ordered) > 1 and ordered[0][2] is not None:
+            printings = [{"number": ordered[0][2], "image": f"{code}.webp"}]
+            for cell, card, number in ordered[1:]:
+                printings.append(
+                    {
+                        "number": number,
+                        "image": _add_crop(
+                            crops, cell, grids, f"{code}-{number}.webp", card.sideways
+                        ),
+                    }
+                )
+            sides["printings"] = printings
+
+        # The back is taken from the first printing that has one. Every printing of a
+        # card has the same back, so which cell it comes from does not matter -- but
+        # only some cells carry one, an alter-ego's portrait riding on the hero's scan.
+        for cell, card, _number in ordered:
+            back = card.back_cell
+            if back is not None and code not in BACK_SCAN_IS_NOT_A_CARD:
+                sides["back_image"] = _add_crop(
+                    crops, back, grids, f"{code}b.webp", card.sideways
+                )
+                break
 
     _check_backs_have_a_side(images, two_sided)
     _check_one_card_per_code(names)
     return (sorted(crops.values(), key=lambda c: c.filename), images)
+
+
+def _printings(
+    by_cell: dict[tuple[str, int], TTSCard], numbers: dict[str, list[int] | None]
+) -> list[tuple[tuple[str, int], TTSCard, int | None]]:
+    """Order a code's cells, and say which printing each one is.
+
+    The number comes back as None -- meaning "one picture for this card, as before" --
+    unless every cell reads a collector number, they all name the same set, and they are
+    all different. Each of those three conditions is a case seen in the save:
+
+    * 46 multi-copy cards print no number at all, the Core Set's shared aspect pool
+      among them, so there is nothing to read and nothing a picker could caption.
+    * 21 codes are reached from cells whose numbers name *different* sets -- Magneto's
+      helmet is both 13/30 and 2/15. Those are two printings that should have had two
+      codes, and calling them copies of one card would paper over it.
+    * A repeated number is Civil War's two Targeted Strike bags holding the same card
+      twice, which is one printing scanned twice rather than two printings.
+    """
+    read = {cell: numbers.get(f"{cell[0]}#{cell[1]}") for cell in by_cell}
+    values = list(read.values())
+
+    if len(by_cell) > 1 and all(v is not None for v in values):
+        sets = {v[1] for v in values if v is not None}
+        printed = [v[0] for v in values if v is not None]
+        if len(sets) == 1 and len(set(printed)) == len(printed):
+            return sorted(
+                ((cell, by_cell[cell], read[cell][0]) for cell in by_cell),  # type: ignore[index]
+                key=lambda row: row[2],
+            )
+
+    return [(cell, by_cell[cell], None) for cell in sorted(by_cell)]
 
 
 # Scans whose back sheet is not a second face of the card. Both are single cards in the
@@ -1096,6 +1156,144 @@ def _add_crop(
     width, height = grids[url]
     crops[filename] = Crop(url, index, width, height, filename, rotate)
     return filename
+
+
+# ---------------------------------------------------------------------------
+# Reading the printed collector number off a scan
+# ---------------------------------------------------------------------------
+
+# "CAPTAIN MARVEL (5/15)" and "CAPTAIN MARVEL 5/15" are both printed; the parenthesised
+# form is the later template. Only the numbers matter, and the denominator is kept
+# because it names the set the copy was printed into -- two cells with different
+# denominators are two different printings, not two copies of one.
+COLLECTOR_NUMBER = re.compile(r"(\d+)\s*/\s*(\d+)")
+
+# The banner sits in the bottom tenth of a card. The full width is read rather than a
+# tighter box around the number: cropping in from the left clipped the leading digit of
+# a two-digit number, which turned 15/16 into 5/16 and 21/30 into 1/30 -- a misread that
+# still parses, and so would have ordered a card's printings wrongly in silence.
+NUMBER_BAND = (0.0, 0.90, 1.0, 0.99)
+
+
+def read_collector_numbers(
+    cells: list[tuple[str, int]],
+    grids: dict[str, tuple[int, int]],
+    rotate: set[tuple[str, int]],
+    *,
+    read_missing: bool = True,
+) -> dict[str, list[int] | None]:
+    """OCR the printed collector number of each cell, cached by cell.
+
+    The alternative was to derive a copy's number arithmetically, as `set_position` plus
+    its rank in cell order. That is right for 621 of 633 measured groups and wrong in
+    two ways that matter: Groot's two-copy cards interleave (4 and 6, not 3 and 4), and
+    the rank itself comes from sorting on Steam's URL, whose leading component is an
+    upload-time id rather than anything about the card. All 152 cross-sheet groups order
+    correctly today because the community uploaded sheets roughly in printing order; a
+    re-scan gets a fresh id and reorders them, and sorting on the hash instead is a coin
+    toss -- 96 of 152 measured. Reading the number off the card depends on none of that.
+    """
+    cache_path = BUILD / "numbers.json"
+    cache: dict[str, list[int] | None] = {}
+    if cache_path.exists():
+        cache = json.loads(cache_path.read_text(encoding="utf-8"))
+
+    wanted = {f"{url}#{index}": (url, index) for url, index in cells}
+    # A sheet that has not been fetched cannot be read. That is the --skip-images case,
+    # where the cache carries the previous run's answers and a card whose sheet is new
+    # keeps one picture until a full run reads it.
+    missing = [
+        key
+        for key, cell in wanted.items()
+        if key not in cache and sheet_path(cell[0]).exists()
+    ]
+
+    if missing and read_missing:
+        log(f"  reading {len(missing)} collector number(s)")
+        by_sheet: dict[str, list[tuple[str, int]]] = defaultdict(list)
+        for key in missing:
+            url, index = wanted[key]
+            by_sheet[url].append((key, index))
+
+        for done, (url, batch) in enumerate(sorted(by_sheet.items()), 1):
+            for key, index in batch:
+                cache[key] = _read_number(url, index, grids, (url, index) in rotate)
+            if done % 25 == 0 or done == len(by_sheet):
+                log(f"    {done}/{len(by_sheet)} sheets")
+
+        # Only the cells still in play are kept, so a re-scan does not accumulate
+        # entries for sheets nothing points at any more.
+        cache = {key: cache[key] for key in wanted if key in cache}
+        cache_path.write_text(
+            json.dumps(cache, indent=1, sort_keys=True), encoding="utf-8"
+        )
+
+    return {key: cache.get(key) for key in wanted}
+
+
+def _contested_cells(
+    tts_cards: list[TTSCard], codes: dict[str, str]
+) -> list[tuple[str, int]]:
+    """Every cell belonging to a code that more than one cell fills.
+
+    A code reached from a single cell needs no number: there is one picture and nothing
+    to choose between. Restricting the read to the contested ones is what keeps this to
+    about 1,800 cells rather than 4,600.
+    """
+    by_code: dict[str, set[tuple[str, int]]] = defaultdict(set)
+    for card in tts_cards:
+        if code := codes.get(card.key):
+            by_code[code].add(card.face_cell)
+    return sorted(
+        cell for cells in by_code.values() if len(cells) > 1 for cell in cells
+    )
+
+
+def _read_number(
+    url: str, index: int, grids: dict[str, tuple[int, int]], rotate: bool
+) -> list[int] | None:
+    from ocrmac import ocrmac  # macOS Vision; imported here so --skip-images need not.
+
+    width, height = grids[url]
+    with Image.open(sheet_path(url)) as sheet:
+        sheet.load()
+        cell_w = sheet.width / width
+        cell_h = sheet.height / height
+        col, row = index % width, index // width
+        tile = sheet.crop(
+            (
+                round(col * cell_w),
+                round(row * cell_h),
+                round((col + 1) * cell_w),
+                round((row + 1) * cell_h),
+            )
+        )
+
+    # A sideways card is stored upright, so its banner runs up the side until turned.
+    if rotate:
+        tile = tile.transpose(Image.Transpose.ROTATE_90)
+
+    left, top, right, bottom = NUMBER_BAND
+    band = tile.crop(
+        (
+            round(tile.width * left),
+            round(tile.height * top),
+            round(tile.width * right),
+            round(tile.height * bottom),
+        )
+    )
+    # The banner is a few pixels tall in the sheet and Vision reads it far more reliably
+    # enlarged.
+    band = band.resize((band.width * 4, band.height * 4), Image.LANCZOS)
+
+    best: tuple[float, list[int]] | None = None
+    for text, confidence, _box in ocrmac.OCR(
+        band, language_preference=["en-US"]
+    ).recognize():
+        found = COLLECTOR_NUMBER.search(text)
+        if found and (best is None or confidence > best[0]):
+            best = (confidence, [int(found.group(1)), int(found.group(2))])
+    return best[1] if best else None
 
 
 def read_previous_crops() -> dict[str, tuple[str, str]]:
@@ -1855,9 +2053,16 @@ def main() -> int:
     two_sided |= {c["back_link"] for c in mdb_cards if c.get("back_link")}
     two_sided |= {c["code"] for c in mdb_cards if c.get("back_link")}
 
-    crops, images = plan_crops(tts_cards, result.resolved, grids, two_sided)
-
     if args.dry_run:
+        numbers = read_collector_numbers(
+            _contested_cells(tts_cards, result.resolved),
+            grids,
+            {c.face_cell for c in tts_cards if c.sideways},
+            read_missing=False,
+        )
+        crops, _images = plan_crops(
+            tts_cards, result.resolved, grids, two_sided, numbers
+        )
         needed = [u for u in {c.url for c in crops} if not sheet_path(u).exists()]
         log("")
         log("dry run")
@@ -1875,6 +2080,24 @@ def main() -> int:
         fetched, size = fetch_sheets(sorted(grids))
         log(f"  {fetched} fetched, {size / 1e6:.0f} MB")
 
+    # A card is scanned once per printing, so a code reached from several cells needs the
+    # printed number off each to say which is which. Only contested cells are read, and
+    # the answer is cached per cell -- so a re-run costs nothing and an update costs only
+    # the cells of the sheets it fetched. This is after the fetch because a sheet has to
+    # be on disk to be read, and before the crop because it decides what to crop.
+    log("")
+    log("reading printings")
+    numbers = read_collector_numbers(
+        _contested_cells(tts_cards, result.resolved),
+        grids,
+        {c.face_cell for c in tts_cards if c.sideways},
+        read_missing=not args.skip_images,
+    )
+    log(f"  {sum(1 for v in numbers.values() if v)} of {len(numbers)} cells read")
+
+    crops, images = plan_crops(tts_cards, result.resolved, grids, two_sided, numbers)
+
+    if not args.skip_images:
         log("")
         log("cropping")
         written, skipped = crop_images(crops, force=args.force)
@@ -1910,6 +2133,12 @@ def main() -> int:
             for record in records
             for key in ("front_image", "back_image")
             if (name := record.get(key)) and not (IMAGES / name).exists()
+        ]
+        missing += [
+            printing["image"]
+            for record in records
+            for printing in record.get("printings", ())
+            if not (IMAGES / printing["image"]).exists()
         ]
         if missing:
             die(f"{len(missing)} referenced image(s) are not on disk, e.g. {missing[:3]}")

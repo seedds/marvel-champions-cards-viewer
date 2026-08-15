@@ -38,6 +38,12 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
   /// has one and his giant form 12001c does not, and seven groups are like that.
   MarvelCard? _selected;
 
+  /// Which of the chosen card's printings is on show, as an index into its
+  /// [MarvelCard.printings]. Zero for the great majority of cards, which have one.
+  /// Held beside [_selected] because it is reset by the same things: a different
+  /// edition is a different card with its own printings, and swiping away forgets both.
+  int _printing = 0;
+
   @override
   void dispose() {
     _controller.dispose();
@@ -84,6 +90,7 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
           _index = index;
           _showingBack = false;
           _selected = null;
+          _printing = 0;
         }),
         itemBuilder: (context, index) => _CardPage(
           // Keyed by code so that swiping to another card builds a fresh page, rather
@@ -100,11 +107,15 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
               ? () => setState(() => _showingBack = !_showingBack)
               : null,
           // Choosing an edition shows its front, rather than the side the previous one
-          // happened to be turned to -- and it may not have a back at all.
+          // happened to be turned to -- and it may not have a back at all. Its
+          // printings are its own, so that choice starts again too.
           onSelected: (edition) => setState(() {
             _selected = edition;
             _showingBack = false;
+            _printing = 0;
           }),
+          printing: index == _index ? _printing : 0,
+          onPrintingSelected: (printing) => setState(() => _printing = printing),
         ),
       ),
     );
@@ -120,6 +131,8 @@ class _CardPage extends StatelessWidget {
     required this.showingBack,
     required this.onFlip,
     required this.onSelected,
+    required this.printing,
+    required this.onPrintingSelected,
     super.key,
   });
 
@@ -133,6 +146,10 @@ class _CardPage extends StatelessWidget {
   final VoidCallback? onFlip;
   final ValueChanged<MarvelCard> onSelected;
 
+  /// Which of [selected]'s printings is on show, as an index into its printings.
+  final int printing;
+  final ValueChanged<int> onPrintingSelected;
+
   @override
   Widget build(BuildContext context) {
     final repository = CardRepositoryScope.of(context);
@@ -141,7 +158,16 @@ class _CardPage extends StatelessWidget {
     final front = selected;
     final linkedBack = repository.backOf(front);
     final face = showingBack ? (linkedBack ?? front) : front;
-    final image = showingBack ? repository.backImageOf(front) : front.frontImage;
+
+    // A box's copies of one card differ only on the front -- they are the same card,
+    // and share a back -- so the chosen printing decides the front image alone. The
+    // index is clamped because a chosen printing outlives nothing: it is reset whenever
+    // the card changes, and 0 is always valid.
+    final printings = front.printings;
+    final chosen = printings.isEmpty ? 0 : printing.clamp(0, printings.length - 1);
+    final frontImage =
+        printings.isEmpty ? front.frontImage : printings[chosen].image;
+    final image = showingBack ? repository.backImageOf(front) : frontImage;
 
     final picker = editions.length < 2
         ? null
@@ -151,9 +177,19 @@ class _CardPage extends StatelessWidget {
             onSelected: onSelected,
           );
 
+    // Only where there is a picture to change. An unscanned card has no printings, and
+    // the back is shared by all of them, so the control would do nothing on either.
+    final printingPicker = printings.length < 2 || showingBack
+        ? null
+        : _Printings(
+            printings: printings,
+            selected: chosen,
+            onSelected: onPrintingSelected,
+          );
+
     // The scan is the card: everything the heading, stats and text below would say is
     // already printed on it, and better. The written-out version is the fallback for
-    // a side with no scan, which is 53 of 3,632 fronts and 5 of 324 backs. The choice
+    // a side with no scan, which is 44 of 3,632 fronts and 5 of 324 backs. The choice
     // stays per side rather than per card: the five remaining two-sided gaps happen to
     // have neither side scanned, but that is the state of one TTS save and not a rule,
     // and a half-scanned card should show art one way and text the other.
@@ -211,6 +247,13 @@ class _CardPage extends StatelessWidget {
             // Still flexible, so a card too tall for the space shrinks to fit rather
             // than pushing the picker off the screen.
             Flexible(child: art),
+            // Directly under the picture, because it changes the picture and nothing
+            // else. One row of a segmented control, so it costs the art far less room
+            // than the editions list below it.
+            if (printingPicker != null) ...[
+              const SizedBox(height: 10),
+              printingPicker,
+            ],
             // The picker asks only for its own rows, so a card with one other edition
             // gives up two rows' worth of picture rather than a third of the screen.
             // Past [_maxPickerRows] it scrolls instead: Apocalypse's eight would be
@@ -315,6 +358,52 @@ class _Art extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Which copy of a card the picture is of, when the box holds more than one.
+///
+/// A sliding segmented control rather than a list: the copies are the same card in
+/// every respect a person could read off a row -- same name, type, set, text and pips --
+/// so [_Editions]' two-line rows would print the identical thing three times. What
+/// separates them is the collector number alone, which is one short label, and picking
+/// between a handful of short labels is what this control is for.
+class _Printings extends StatelessWidget {
+  const _Printings({
+    required this.printings,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<CardPrinting> printings;
+  final int selected;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: CupertinoSlidingSegmentedControl<int>(
+        groupValue: selected,
+        onValueChanged: (value) {
+          if (value != null) onSelected(value);
+        },
+        children: {
+          for (final (index, printing) in printings.indexed)
+            index: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              // The number as the card prints it. Not "Copy 1 of 3": the number is what
+              // is on the card in front of the reader, and the only thing telling the
+              // copies apart.
+              child: Text(
+                '${printing.number}',
+                style: rowCaptionStyle(context),
+                maxLines: 1,
+              ),
+            ),
+        },
       ),
     );
   }

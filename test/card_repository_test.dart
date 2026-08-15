@@ -283,8 +283,14 @@ void main() {
       // whose bag holds them. Each had resolved to a Core Set card that shares its name
       // and was overwriting that card's art: 01044 wore Shuri's Vibranium, 01008 wore
       // Miles' Web-Shooter, and the alter-ego portrait 01040b wore an ally's card.
-      expect(all.where((c) => c.hasArt), hasLength(3903));
-      expect(all.where((c) => !c.hasArt), hasLength(53));
+      //
+      // 3,903 until Trickster Magic's four allies were pinned. Each of its villains is
+      // printed twice, as a minion and as the ally you get for defeating it, and both
+      // sit in one bag under one name -- so all eight scans went to the minion codes.
+      // Reading the printed collector numbers is what surfaced it: a minion code
+      // claiming cells numbered 1/11 and 8/11 is two cards, not two copies.
+      expect(all.where((c) => c.hasArt), hasLength(3907));
+      expect(all.where((c) => !c.hasArt), hasLength(49));
     });
 
     // The build script reads orientation from the TTS save, where it is the only
@@ -311,12 +317,85 @@ void main() {
     test('every referenced image exists on disk', () {
       final missing = <String>[];
       for (final card in all) {
-        for (final name in [card.frontImage, card.backImage]) {
+        for (final name in [
+          card.frontImage,
+          card.backImage,
+          ...card.printings.map((p) => p.image),
+        ]) {
           if (name == null) continue;
           if (!File('assets/CardImages/$name').existsSync()) missing.add(name);
         }
       }
       expect(missing, isEmpty);
+    });
+
+    // A box printing three copies of a card prints three different collector numbers on
+    // them, and the community scanned each copy. Photonic Blast is three: 5/15, 6/15 and
+    // 7/15, all the same face. The build shipped one of them for five builds and threw
+    // the other two away, because they all matched one code and the last crop won.
+    group('printings', () {
+      test('a card printed several times carries every printing', () {
+        final photonicBlast = repo.byCode('01013')!;
+        expect(photonicBlast.name, 'Photonic Blast');
+        expect(
+          photonicBlast.printings.map((p) => p.number),
+          [5, 6, 7],
+          reason: 'the three copies in the Core Set box, by printed number',
+        );
+      });
+
+      test('a card printed once carries no printings at all', () {
+        // Never one entry long: a list of one is a choice with one option, and every
+        // caller would have to special-case it.
+        expect(all.where((c) => c.printings.length == 1), isEmpty);
+        expect(repo.byCode('01015')!.printings, isEmpty);
+      });
+
+      test('the first printing is the card\'s own front image', () {
+        // So a caller that ignores printings still shows the card.
+        final wrong = all
+            .where((c) => c.printings.isNotEmpty)
+            .where((c) => c.printings.first.image != c.frontImage);
+        expect(wrong, isEmpty);
+      });
+
+      test('printings ascend by printed number, and never repeat one', () {
+        for (final card in all.where((c) => c.printings.isNotEmpty)) {
+          final numbers = card.printings.map((p) => p.number).toList();
+          expect(
+            numbers,
+            orderedEquals(numbers.toList()..sort()),
+            reason: '${card.code} ${card.name}',
+          );
+          expect(numbers.toSet(), hasLength(numbers.length),
+              reason: '${card.code} ${card.name}');
+        }
+      });
+
+      // The count is asserted so that a data drop which changes it says so, the way the
+      // edition count does. 529 cards are printed twice, 100 three times, and Hydra
+      // Soldier six.
+      test('the expected number of cards have several printings', () {
+        final printed = all.where((c) => c.printings.isNotEmpty);
+        expect(printed, hasLength(653));
+        expect(
+          printed.fold<int>(0, (sum, c) => sum + c.printings.length),
+          1459,
+        );
+      });
+
+      // Upstream's quantity is the number of copies in the box, so it should equal the
+      // number of scans -- and does, for every card but one. Civil War's Energy
+      // Absorption 56103 is printed 12/14 and 13/14 and marvelsdb records quantity 1;
+      // the two scans are plainly the same card, so the scans are right and the record
+      // is wrong. Pinned so that a new disagreement is looked at rather than assumed.
+      test('printings agree with the printed quantity, bar one known record', () {
+        final disagree = all
+            .where((c) => c.printings.isNotEmpty)
+            .where((c) => c.printings.length != c.quantity)
+            .map((c) => c.code);
+        expect(disagree, ['56103']);
+      });
     });
 
     test('stage is a printed marker, not a number', () {

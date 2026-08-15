@@ -144,6 +144,28 @@
     "Web-Shooter@Spider-Man Hero Pack / Spider-Man's Hero Deck #1": "27039",
     "Web-Shooter@Spider-Man Hero Pack / Spider-Man's Hero Deck #2": "27039",
 
+    "_trickster_magic_minions_and_allies": [
+      "Trickster Magic prints each of its four villains twice: as a minion in the",
+      "encounter set (55056-55059) and as the ally you get for defeating it",
+      "(55063-55066). Both have the same name, the save holds both in one modular-set",
+      "bag, and only the ordinal separates them -- so all eight scans resolved to the",
+      "four minion codes and the four ally codes had no art.",
+      "",
+      "Surfaced by the printings work: each minion code claimed two cells whose printed",
+      "numbers were 1/11 and 8/11, and a card cannot be printed at two positions in one",
+      "set. The pictures say the rest -- #1 is the ally, an Avenger-blue card with a",
+      "cost and 'DEFIANT.', numbered 8/11 through 11/11; #2 is the minion, numbered",
+      "1/11 through 4/11."
+    ],
+    "Absorbing Man@Modular Sets / Trickster Magic Modular Set #1": "55063",
+    "Titania@Modular Sets / Trickster Magic Modular Set #1": "55064",
+    "Whirlwind@Modular Sets / Trickster Magic Modular Set #1": "55065",
+    "Zzzax@Modular Sets / Trickster Magic Modular Set #1": "55066",
+    "Absorbing Man@Modular Sets / Trickster Magic Modular Set #2": "55056",
+    "Titania@Modular Sets / Trickster Magic Modular Set #2": "55057",
+    "Whirlwind@Modular Sets / Trickster Magic Modular Set #2": "55058",
+    "Zzzax@Modular Sets / Trickster Magic Modular Set #2": "55059",
+
     "_lettered_runs_are_separate_cards": [
       "A run of codes sharing a stem, one name, one type and no back_links is NOT one",
       "card in several artworks -- it is several cards a deck holds at once, differing",
