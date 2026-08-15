@@ -292,13 +292,14 @@ void main() {
     await search(tester, 'wakanda forever');
     await openFirstResult(tester);
 
-    // All four Core Set printings caption as "Black Panther · #43", so the pip is the
-    // only thing between them. CardText draws it as the lozenge the card's text uses,
-    // which is why these are found as a caption rather than as flat text.
-    expect(caption('Black Panther  \u00b7  #43  \u00b7  [energy]'), findsOneWidget);
-    expect(caption('Black Panther  \u00b7  #43  \u00b7  [mental]'), findsOneWidget);
-    expect(caption('Black Panther  \u00b7  #43  \u00b7  [physical]'), findsOneWidget);
-    expect(caption('Black Panther  \u00b7  #43  \u00b7  [wild]'), findsOneWidget);
+    // The four Core Set printings are numbered 43A to 43D, and each carries the pip
+    // that is the real difference between the cards. CardText draws the pip as the
+    // lozenge the card's text uses, which is why these are found as a caption rather
+    // than as flat text.
+    expect(caption('Black Panther  \u00b7  #43A  \u00b7  [energy]'), findsOneWidget);
+    expect(caption('Black Panther  \u00b7  #43B  \u00b7  [mental]'), findsOneWidget);
+    expect(caption('Black Panther  \u00b7  #43C  \u00b7  [physical]'), findsOneWidget);
+    expect(caption('Black Panther  \u00b7  #43D  \u00b7  [wild]'), findsOneWidget);
 
     // Shuri's is the fifth row, and the picker draws four before it scrolls, so it is
     // not built until scrolled to. It needs no pip to separate it -- a different set
@@ -325,7 +326,9 @@ void main() {
 
     expect(button(flipIcon), findsOneWidget, reason: '12001a has an alter-ego');
 
-    await tester.tap(caption('Ant-Man  \u00b7  #1  \u00b7  12001c'));
+    // 1A and 1C: the printed letter is the only thing between the hero card and his
+    // giant form, which agree on set, number, stage and pips.
+    await tester.tap(caption('Ant-Man  \u00b7  #1C'));
     await tester.pumpAndSettle();
     expect(button(flipIcon), findsNothing,
         reason: 'the giant form has no second side to turn to');

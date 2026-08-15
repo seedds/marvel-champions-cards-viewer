@@ -280,9 +280,21 @@
     "Sinister Experiment@Mister Sinister Scenario Pack / Mister Sinister Main Scheme #2": "40141a",
     "Sinister Experiment@Mister Sinister Scenario Pack / Mister Sinister Main Scheme #3": "40142a",
 
-    "A.I.M. Interference@Campaign and Market Cards / Agents of S.H.I.E.L.D. Campaign Cards / S.H.I.E.L.D. Executive Board #1": "50184a",
+    "_aim_interference_is_listed_in_reverse": [
+      "Three printings differing only in the resource named in their own text, so the",
+      "picture cannot say which is which by looking -- but the number in the corner can,",
+      "and it said these were pinned backwards. #1 through #3 are cells 16, 15 and 14,",
+      "whose art prints 184C, 184B and 184A: this bag lists them in REVERSE cell order,",
+      "the same as the pip runs above. Ascending order put 50184a in front of 184C's art",
+      "and 50184c in front of 184A's, so those two wore each other's card for six",
+      "builds while the middle one was right.",
+      "",
+      "Nothing downstream could see it. Both files existed, both were a correct picture",
+      "of a real card, and only the printed letter said they were the wrong way round."
+    ],
+    "A.I.M. Interference@Campaign and Market Cards / Agents of S.H.I.E.L.D. Campaign Cards / S.H.I.E.L.D. Executive Board #1": "50184c",
     "A.I.M. Interference@Campaign and Market Cards / Agents of S.H.I.E.L.D. Campaign Cards / S.H.I.E.L.D. Executive Board #2": "50184b",
-    "A.I.M. Interference@Campaign and Market Cards / Agents of S.H.I.E.L.D. Campaign Cards / S.H.I.E.L.D. Executive Board #3": "50184c",
+    "A.I.M. Interference@Campaign and Market Cards / Agents of S.H.I.E.L.D. Campaign Cards / S.H.I.E.L.D. Executive Board #3": "50184a",
 
     "Growing Invulnerable@Modular Sets / Growing Strong Modular Set": "52036",
     "Growing Invulnerable@Thunderbolts Modular Sets / Growing Strong Modular Set": "52036",

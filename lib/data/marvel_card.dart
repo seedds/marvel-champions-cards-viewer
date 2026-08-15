@@ -14,6 +14,7 @@ class MarvelCard {
     required this.packCode,
     required this.packName,
     required this.position,
+    required this.printedNumber,
     required this.quantity,
     required this.sortKey,
     required this.landscape,
@@ -29,7 +30,6 @@ class MarvelCard {
     this.printings = const [],
     this.backLink,
     this.editionOf,
-    this.editionCaptionCode = false,
     this.backName,
     this.backText,
     this.doubleSided = false,
@@ -77,6 +77,16 @@ class MarvelCard {
   final int? setPosition;
   final int quantity;
 
+  /// The number in the card's corner, as printed: `40` for most cards, `40A` for one
+  /// of a set the box prints several versions of.
+  ///
+  /// Not derived here. The letter is the code's suffix, but only for the 36 cards whose
+  /// stem has more than one browsable record -- a two-sided card's suffix is
+  /// marvelsdb's ordering of the sides and 12 pairs print it inverted, Groot's hero
+  /// `16001a` printing `1B`. `number_printings` in `tools/build_assets.py` settles
+  /// which is which, so no widget has to know.
+  final String printedNumber;
+
   /// Release order: pack position, then position within the pack.
   final List<int> sortKey;
 
@@ -111,11 +121,6 @@ class MarvelCard {
   /// upstream links them. Null on a card whose name and type are unique and on the
   /// first of a group, so the root of a group points at nothing.
   final String? editionOf;
-
-  /// True when this card's editions cannot be told apart by set, printed number, stage
-  /// and resource pips, so the picker has to caption them with their codes instead.
-  /// Four groups: Android Efficiency, Ant-Man, Wasp and Apocalypse.
-  final bool editionCaptionCode;
 
   /// The one card whose back is carried on its own record rather than a linked one.
   final String? backName;
@@ -201,6 +206,7 @@ class MarvelCard {
       setCode: json['set_code'] as String?,
       setName: json['set_name'] as String?,
       position: json['position'] as int,
+      printedNumber: json['printed_number'] as String,
       setPosition: json['set_position'] as int?,
       quantity: json['quantity'] as int,
       sortKey: (json['sort_key'] as List).cast<int>(),
@@ -213,7 +219,6 @@ class MarvelCard {
       ],
       backLink: json['back_link'] as String?,
       editionOf: json['edition_of'] as String?,
-      editionCaptionCode: json['edition_caption_code'] as bool? ?? false,
       backName: json['back_name'] as String?,
       backText: json['back_text'] as String?,
       doubleSided: json['double_sided'] as bool? ?? false,

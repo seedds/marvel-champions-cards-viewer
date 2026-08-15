@@ -509,10 +509,10 @@ class _Editions extends StatelessWidget {
 /// the card: the stage, for a villain's three; the resource pips, for a run like
 /// Wakanda Forever! whose five agree on set and number and differ by the pip alone.
 ///
-/// Four groups are separated by none of it -- Android Efficiency's three differ by a pip
-/// inside their boost text, Ant-Man and Wasp by the attack of their giant form, and two
-/// Apocalypse stages by scheme. The build script marks those and the code stands in: it
-/// is printed on the card, and it is unique by construction.
+/// The number carries its letter, which is what separates the four groups that
+/// otherwise share every readable field: Android Efficiency's three are `144A`, `144B`
+/// and `144C`, and Ant-Man and Wasp are `1A` beside their giant form's `1C`. The build
+/// script fails rather than let two rows of a group print the same caption.
 String _editionCaption(MarvelCard card) {
   return [
     // The set and number a browse row already shows, so that the card a person tapped
@@ -522,7 +522,6 @@ String _editionCaption(MarvelCard card) {
     // Rendered by CardText as the same lozenge the card's own text uses.
     if (card.resources.isNotEmpty)
       card.resources.map((resource) => '[$resource]').join(),
-    if (card.editionCaptionCode) card.code,
   ].join('  \u00b7  ');
 }
 

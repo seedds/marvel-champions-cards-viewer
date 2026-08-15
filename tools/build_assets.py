@@ -1477,8 +1477,64 @@ def build_records(
         records.append(record)
 
     records.sort(key=lambda r: (r["sort_key"], r["code"]))
+    number_printings(records)
     link_editions(records)
     return records
+
+
+# A code ending in a letter, as `01043a` -- the stem and the letter separately.
+LETTERED_CODE = re.compile(r"^(\d+)([a-z])$")
+
+
+def number_printings(records: list[dict]) -> int:
+    """Write `printed_number`: the number in the card's corner, letter and all.
+
+    A box that prints one card in several versions numbers them by letter -- Echo's
+    three Photographic Reflexes are `40A`, `40B` and `40C`, not three cards all called
+    40 -- and `position` carries only the digits. The letter is the *code's* suffix,
+    which is verified against the art: of the 29 standalone lettered cards the OCR read,
+    27 print exactly the letter their code ends in and the other two are unreadable
+    scans whose neighbours agree.
+
+    **Only for a browsable card whose stem holds more than one.** The letter is not a
+    property of a code, it is what the card prints, and for a two-sided card the two do
+    not agree: 12 pairs print it *inverted* -- Groot's hero `16001a` prints `1B` and his
+    alter-ego `16001b` prints `1A` -- because there the suffix is marvelsdb's own
+    ordering of the sides, not the printer's. Both halves of that test are load-bearing.
+
+    Requiring several in the stem excludes those pairs structurally rather than by a
+    list, an alter-ego being a back side and so leaving one browsable record in its
+    stem. Requiring the record itself to be browsable is what keeps the six back sides
+    that sit *inside* a qualifying stem honest: Ant-Man's portrait `12001b` is the back
+    of `12001a`, which prints `1A`, so numbering it `1B` would put a number on it that
+    the card does not print. Nothing reads a back's number today, which is exactly why
+    it should not be quietly wrong.
+
+    Returns the number of cards that gain a letter.
+    """
+    backs = {r["back_link"] for r in records if r.get("back_link")}
+
+    browsable_in_stem: dict[str, int] = defaultdict(int)
+    for record in records:
+        if record["code"] in backs:
+            continue
+        if found := LETTERED_CODE.match(record["code"]):
+            browsable_in_stem[found.group(1)] += 1
+
+    lettered = 0
+    for record in records:
+        found = LETTERED_CODE.match(record["code"])
+        if (
+            found
+            and record["code"] not in backs
+            and browsable_in_stem[found.group(1)] > 1
+        ):
+            record["printed_number"] = f"{record['position']}{found.group(2).upper()}"
+            lettered += 1
+        else:
+            record["printed_number"] = str(record["position"])
+
+    return lettered
 
 
 # The resource pips a card is printed with, in the order the picker names them. Four
@@ -1499,10 +1555,15 @@ def _edition_caption(record: dict) -> tuple:
     Set (or pack, when a card is in none) and printed number separate almost every
     edition of a card. Stage separates a villain's three, and the resource pips separate
     a run like Wakanda Forever! whose members share even their printed number.
+
+    The number is `printed_number`, which carries the letter a card printed several
+    times over is numbered with -- `144A`, `144B`, `144C`. Reading `position` instead
+    numbered all three of those 144, which is what used to leave four groups with no
+    caption to tell their rows apart. See `number_printings`.
     """
     return (
         record.get("set_name") or record["pack_name"],
-        record["position"],
+        record["printed_number"],
         record.get("stage"),
         tuple(name for field, name in RESOURCE_FIELDS if record.get(field)),
     )
@@ -1567,19 +1628,18 @@ def link_editions(records: list[dict]) -> int:
         group.sort(key=lambda r: (r["sort_key"], r["code"]))
 
         # A picker row is the card's name over this caption, so two editions agreeing on
-        # all of it would be two rows nothing tells apart. Four groups do: Android
-        # Efficiency's three differ only by a pip inside their boost text, Ant-Man and
-        # Wasp by the attack of their giant form, and two Apocalypse stages by scheme.
-        # Those fall back to the code, which is at least printed on the card and is
-        # unique by construction. The die() below is for a data drop that manages to
-        # collide even that.
+        # all of it would be two rows nothing tells apart. Nothing in the data does,
+        # once the caption carries the printed *letter*: the four groups that used to
+        # need the code -- Android Efficiency, Ant-Man, Wasp and two Apocalypse stages --
+        # are separated by 144A/144B/144C, 1A/1C and 184A/184C, which is what the cards
+        # themselves print. So this fails the build rather than degrading to the code:
+        # a caption a person cannot read is the bug, and it should not ship quietly.
         captions = {_edition_caption(r) for r in group}
         if len(captions) != len(group):
-            for record in group:
-                record["edition_caption_code"] = True
-            if len({r["code"] for r in group}) != len(group):
-                die(f"editions of {group[0]['name']!r} share a code: "
-                    f"{[r['code'] for r in group]}")
+            die(f"editions of {group[0]['name']!r} cannot be told apart by their "
+                f"captions: {[r['code'] for r in group]}. Each row would print the "
+                "same set, number, stage and pips. Find what the cards print "
+                "differently and add it to _edition_caption.")
 
         for edition in group[1:]:
             edition["edition_of"] = group[0]["code"]

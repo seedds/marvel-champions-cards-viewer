@@ -15,7 +15,7 @@ python tools/build_assets.py            # rebuild assets
 python tools/build_assets.py --dry-run  # report, change nothing
 
 flutter analyze                                   # must be clean
-flutter test                                      # data, text and the screens. 128 tests, ~11s
+flutter test                                      # data, text and the screens. 130 tests, ~12s
 flutter test integration_test -d <simulator-id>   # the memory ceiling only, on a device
 flutter run -d <simulator-id>
 ```
@@ -228,6 +228,7 @@ ignoring them.
 | A card the save keeps as a state is not a card | Ant-Man and Wasp each have a tiny and a giant hero form, held as alternate states of the alter-ego object rather than as cards. All four are real cards with real scans, on the same sheet as their alter-egos. The letter in the corner names the form: `1A` tiny, `1C` giant. |
 | A code collision loses a card | It does not — it is worse. Two scans on one code share a filename, the last crop written wins, and the loser ends up *showing the winner's art*. Nothing downstream can see this, so `plan_crops` fails the build when an override lands on a code another cell already fills. |
 | So that check catches a collision | Only one an *override* causes. 819 codes are legitimately reached from several cells, so a collision between two name-matched scans says nothing on its own and cannot be failed on — which is exactly how `01044`, `01047`, `01049`, `01040b` and `01008` each spent five builds wearing another printing's picture. The check fires once a human pins one of the pair, which is why fixing these five surfaced two more. There is no automatic guard here, only the crops. |
+| An override that pins every cell of a bag is safe | Only if it pins them in the bag's own order, and a bag's order is not reliably ascending. The three `A.I.M. Interference` printings differ only in a resource named inside their own text, so no picture could say they were pinned backwards — but the letters could, and did: cells 14–16 print `184A`–`184C` while the overrides read `a`, `b`, `c` up the cells. `50184a` and `50184c` wore each other's card for six builds with the middle one correct. This is the sixth instance of the row above and the first the *printed letter* caught. |
 | A crop is current if it is newer than its sheet | Only if it still comes from the same cell. Re-matching a card keeps its filename and changes its source, and the stale file on disk is still newer than the sheet — so the cache must compare provenance against `crops.csv`, not just mtimes. |
 | `HEAD` is how you check a URL | Steam answers `HEAD` with 404 and `GET` with 200. A ranged `GET` stands in for it. |
 | Downloads should be parallel | Steam drops most concurrent requests — three of eight succeeded when measured — while sequential ones never failed. Parallelism here buys retries, not speed. |
@@ -350,16 +351,33 @@ be:
 | In the caption | Because |
 | --- | --- |
 | set (or pack, where a card is in no set) | Separates most groups on its own. |
-| printed number | Civil War prints Superhero Registration Act four times into one set, two of them with byte-identical art. |
+| printed number, **letter and all** | Civil War prints Superhero Registration Act four times into one set, two of them with byte-identical art. The letter is what separates the groups nothing else does — see `printed_number` below. |
 | `stage`, when printed | A villain's three stages are one set and three numbers, but the stage is what a person reads. |
-| resource pips | The only thing between `01043a`–`01043d`, which agree on set *and* number. Drawn by `CardText` as the same lozenge the card's own text uses. |
+| resource pips | The real difference between `01043a`–`01043d`, which agree on set and on the digits of their number. Drawn by `CardText` as the same lozenge the card's own text uses. |
 
-Four groups are separated by none of it, and the build script marks them with
-`edition_caption_code` so the **card's code** stands in: Android Efficiency's three
-differ by a pip inside their boost text, Ant-Man and Wasp by the attack of their giant
-form, and two Apocalypse stages by scheme. `link_editions` fails the build if even the
-code collides. The pack is not in the caption — the provenance block below gives it in
-full for whichever edition is chosen.
+Nothing needs the card's code as a caption, and `link_editions` **fails the build** if a
+group is ever left with two rows a person cannot tell apart. Four groups used to need
+it — Android Efficiency, Ant-Man, Wasp and two Apocalypse stages — and the printed
+letter is what retired the fallback. The pack is not in the caption; the provenance
+block below gives it in full for whichever edition is chosen.
+
+### `printed_number`: the letter in the corner
+
+A box that prints one card in several versions numbers them by letter. Echo's three
+Photographic Reflexes are **`40A`, `40B` and `40C`**, not three cards all called 40, and
+`position` carries only the digits — so a picker reading `position` printed the same
+number on every row. 36 cards carry a letter, and `number_printings` derives it from the
+**code's suffix**, verified against the art: of the 29 the OCR could read, 27 print
+exactly the letter their code ends in and the other two are unreadable scans whose
+neighbours agree.
+
+The rule is narrow on purpose, and both halves of it are load-bearing:
+
+| Trap | Reality |
+| --- | --- |
+| The code's letter is the card's letter | Not for a two-sided card, where the suffix is marvelsdb's ordering of the sides rather than the printer's. **12 pairs print it inverted** — Groot's hero `16001a` prints `1B` and his alter-ego `16001b` prints `1A`; also Wolverine, Phoenix, Gambit, Cyclops, Storm, Rogue, Colossus, Shadowcat, Rocket Raccoon, Valkyrie, `41002a` Psi-Knife and `50167a`. Requiring several browsable records in the stem excludes all of them structurally, an alter-ego being a back side. |
+| So the stem test is enough | Six back sides sit *inside* a stem that does qualify. `12001b` is the back of `12001a`, which prints `1A`, so numbering it `1B` puts a number on it the card does not print. Nothing reads a back's number, which is exactly why it should not be quietly wrong. |
+| The number itself is right | `45184a`–`45186c` print `179A` through `181C` where `position` says 184–186 — the same upstream `set_position` error described above. The letter is right and the digits are as wrong as they were before. |
 
 ## The app
 

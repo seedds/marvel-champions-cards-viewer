@@ -184,31 +184,46 @@ void main() {
     // The picker captions each row with where the card was printed, plus what is
     // printed on it where that is not enough: the stage for a villain's three, and the
     // resource pips for a run like Wakanda Forever! whose five agree on set and number.
-    // Four groups are separated by none of it and carry a flag saying the code stands
-    // in; every row of every group has to end up with a caption of its own.
+    // Every row of every group has to end up with a caption of its own.
     test('every edition of a card gets a caption of its own', () {
       for (final card in editions) {
         final group = repo.editionsOf(card);
         final captions = group
             .map((c) => [
                   c.setName ?? c.packName,
-                  c.position,
+                  c.printedNumber,
                   c.stage,
                   c.resources.join(),
-                  if (c.editionCaptionCode) c.code,
                 ].join('/'))
             .toSet();
         expect(captions, hasLength(group.length), reason: card.code);
       }
     });
 
-    // The four that need the code, and the reason each does. Asserted by name so that a
-    // data drop adding a fifth shows up as a failure here rather than as two rows in
-    // the picker that nothing tells apart.
-    test('only the groups that need the code carry the flag', () {
-      final flagged = repo.browsable.where((c) => c.editionCaptionCode);
-      expect(flagged.map((c) => c.name).toSet(),
-          {'Android Efficiency', 'Ant-Man', 'Wasp', 'Apocalypse'});
+    // The printed letter is what carries these four, and it is the whole reason the
+    // caption no longer falls back to the card's code. Each group agrees on set,
+    // stage and pips, and on the digits of its number: only the letter separates them.
+    test('the groups that nothing else separates are separated by the letter', () {
+      const groups = {
+        '01144a': ['144A', '144B', '144C'], // a pip inside the boost text
+        '12001a': ['1A', '1C'], // Ant-Man beside his giant form
+        '13001a': ['1A', '1C'], // and Wasp beside hers
+      };
+      groups.forEach((code, numbers) {
+        final group = repo.editionsOf(repo.byCode(code)!);
+        expect(group.map((c) => c.printedNumber), numbers, reason: code);
+        expect(group.map((c) => c.setName).toSet(), hasLength(1), reason: code);
+      });
+
+      // Apocalypse's eight are separated by set and stage as well, but two pairs of
+      // them share both and need the letter: 184A/184C and 185A/185C.
+      final apocalypse = repo.editionsOf(repo.byCode('45184a')!);
+      expect(
+        apocalypse.where((c) => c.setName == 'En Sabah Nur').map(
+              (c) => c.printedNumber,
+            ),
+        ['184A', '184C', '185A', '185C', '186A', '186C'],
+      );
     });
 
     // Grouping deliberately ignores where a card sits. An earlier rule also required
@@ -291,6 +306,50 @@ void main() {
       // claiming cells numbered 1/11 and 8/11 is two cards, not two copies.
       expect(all.where((c) => c.hasArt), hasLength(3907));
       expect(all.where((c) => !c.hasArt), hasLength(49));
+    });
+
+    // A card the box prints several versions of is numbered with a letter -- Echo's
+    // three Photographic Reflexes are 40A, 40B and 40C -- and the letter comes from the
+    // code's suffix. Verified against the art: 27 of the 29 the OCR could read print
+    // exactly the letter their code ends in, the other two being unreadable scans.
+    test('a card printed in several versions is numbered with its letter', () {
+      const expected = {
+        '60040a': '40A', '60040b': '40B', '60040c': '40C',
+        '01043a': '43A', '01043b': '43B', '01043c': '43C', '01043d': '43D',
+        '01144a': '144A', '01144b': '144B', '01144c': '144C',
+        '47007a': '7A', '47008b': '8B', '47010c': '10C',
+        '50184a': '184A', '50184b': '184B', '50184c': '184C',
+        '12001a': '1A', '12001c': '1C', '13001a': '1A', '13001c': '1C',
+      };
+      expected.forEach((code, number) {
+        expect(repo.byCode(code)!.printedNumber, number, reason: code);
+      });
+
+      // 36 cards, and every one of them a browsable card whose code stem holds more
+      // than one. A data drop that widens this says so here.
+      final lettered = all.where((c) => c.printedNumber != '${c.position}');
+      expect(lettered, hasLength(36));
+      for (final card in lettered) {
+        expect(repo.isBackSide(card.code), isFalse, reason: card.code);
+      }
+    });
+
+    // The letter is what the *card* prints, and for a two-sided card that is not the
+    // code's suffix: 12 pairs print it inverted, Groot's hero 16001a printing 1B while
+    // his alter-ego 16001b prints 1A. Deriving a letter for those would put a number on
+    // the card that the card does not carry, so a lone-in-its-stem code gets none.
+    test('a two-sided card is not given a letter its printing inverts', () {
+      const inverted = [
+        '16001a', '16029a', '25001a', '32001a', '32030a', '33001a',
+        '34001a', '35001a', '36001a', '37001a', '38001a', '50167a',
+      ];
+      for (final code in inverted) {
+        final card = repo.byCode(code)!;
+        expect(card.printedNumber, '${card.position}', reason: code);
+      }
+      // Ant-Man's portrait sits inside a stem that does qualify, and is still a back
+      // side: 12001b would be numbered 1B where the card it is the back of prints 1A.
+      expect(repo.byCode('12001b')!.printedNumber, '1');
     });
 
     // The build script reads orientation from the TTS save, where it is the only

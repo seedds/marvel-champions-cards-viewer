@@ -146,9 +146,12 @@ class _CardRowState extends State<CardRow> {
 ///
 /// The same two facts, spelled the same way, that `_editionCaption` in
 /// `card_detail_screen.dart` opens with -- a card's provenance should not read
-/// differently depending on which screen is showing it.
+/// differently depending on which screen is showing it. Which is why this reads
+/// [MarvelCard.printedNumber] and not `position`: a card the box prints several
+/// versions of is numbered with a letter, and `40A` here and `40` one tap later would
+/// be the same card claiming two numbers.
 String rowProvenance(MarvelCard card) =>
-    '${card.setName ?? card.packName}  \u00b7  #${card.position}';
+    '${card.setName ?? card.packName}  \u00b7  #${card.printedNumber}';
 
 /// A card's art in miniature, decoded at the size it is drawn.
 class CardThumbnail extends StatelessWidget {
